@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Noto_Sans_JP, Inter } from "next/font/google";
 import "./globals.css";
 import TabBar from "./components/TabBar";
+import Sidebar from "./components/Sidebar";
 
 const noto = Noto_Sans_JP({
   variable: "--font-noto",
@@ -28,6 +29,7 @@ export default function RootLayout({
   return (
     <html lang="ja" className={`${noto.variable} ${inter.variable}`}>
       <body>
+        <Sidebar />
         <div className="app">
           {children}
           <TabBar />
