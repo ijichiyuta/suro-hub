@@ -41,7 +41,7 @@ export default function Home() {
 
       <div className="pad" style={{ color: "var(--sub)", fontSize: 12.5, margin: "10px 0 0", fontWeight: 700 }}>{list.length}機種</div>
 
-      <div className="pad">
+      <div className="pad mgrid">
         {list.slice(0, 400).map((m) => (
           <Link key={m.id} href={`/m/${m.id}`} className="row">
             {m.thumb

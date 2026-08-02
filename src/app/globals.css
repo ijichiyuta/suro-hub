@@ -130,4 +130,21 @@ button { font-family: inherit; cursor: pointer; }
 .content strong, .content b { font-weight: 700; }
 .content .num, .content table { font-variant-numeric: tabular-nums; }
 
+/* ===== デスクトップ対応（中央のアプリ枠を締める＋一覧を2カラム化） ===== */
+@media (min-width: 760px) {
+  body { background: #e7e9ed; }
+  .app { max-width: 780px; box-shadow: 0 24px 70px rgba(20, 24, 31, 0.12); border-inline: 1px solid var(--border); }
+  .tabbar { max-width: 780px; box-shadow: 0 -1px 0 var(--border); }
+  /* 機種一覧を2カラムに */
+  .mgrid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 24px; }
+  .mgrid .row { border-bottom: 1px solid var(--line); }
+  /* iframe計算ツールも広く使える */
+  .content img { max-width: 520px; }
+}
+@media (min-width: 1100px) {
+  .app { max-width: 900px; }
+  .tabbar { max-width: 900px; }
+  .mgrid { grid-template-columns: 1fr 1fr 1fr; }
+}
+
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
