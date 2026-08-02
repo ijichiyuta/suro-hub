@@ -49,11 +49,7 @@ export default function Home() {
                 <img className="thumb" src={m.thumb} alt="" loading="lazy" />
               : <span className="thumb thumb-ph">🎰</span>}
             <span style={{ minWidth: 0, flex: 1 }}>
-              <span style={{ display: "flex", gap: 5, alignItems: "center", marginBottom: 3 }}>
-                {m.isNew && <i className="badge new">新台</i>}
-                {m.sources.ev && <i className="badge blue">期待値</i>}
-                {m.sources.lab && <i className="badge">研究所</i>}
-              </span>
+              {m.isNew && <span style={{ display: "flex", gap: 5, alignItems: "center", marginBottom: 3 }}><i className="badge new">新台</i></span>}
               <span style={{ display: "block", fontWeight: 700, fontSize: 15, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</span>
               {m.maker && <span style={{ display: "block", color: "var(--light)", fontSize: 12 }}>{m.maker}</span>}
             </span>

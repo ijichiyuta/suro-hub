@@ -21,15 +21,6 @@ function Content({ html }: { html: string }) {
 function Pending({ text }: { text: string }) {
   return <p style={{ color: "var(--light)", padding: "16px 0", fontSize: 13 }}>{text}</p>;
 }
-function Sources({ ev, lab }: { ev: boolean; lab: boolean }) {
-  return (
-    <div style={{ display: "flex", gap: 5, alignItems: "center", marginBottom: 12 }}>
-      <span className="eyebrow" style={{ marginRight: 2 }}>出典</span>
-      {ev && <i className="badge blue">期待値</i>}
-      {lab && <i className="badge">研究所</i>}
-    </div>
-  );
-}
 
 export default function MachineView({ machine: m }: { machine: Machine }) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("狙い目");
@@ -49,8 +40,6 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
             <span style={{ display: "block", fontWeight: 800, fontSize: 16, lineHeight: 1.25, letterSpacing: "-0.02em" }}>{m.name}</span>
             <span style={{ display: "flex", gap: 5, alignItems: "center", marginTop: 3, flexWrap: "wrap" }}>
               {m.isNew && <i className="badge new">新台</i>}
-              {m.sources.ev && <i className="badge blue">期待値</i>}
-              {m.sources.lab && <i className="badge">研究所</i>}
               {m.maker && <span style={{ color: "var(--light)", fontSize: 12 }}>{m.maker}</span>}
             </span>
           </span>
@@ -72,7 +61,6 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
                 </button>
               )}
             </div>
-            <Sources ev={m.sources.ev} lab={m.sources.lab} />
             {m.ev?.nerai && <Content html={orig && m.ev.neraiOriginal ? m.ev.neraiOriginal : m.ev.nerai} />}
             {m.hasCalc ? (
               calc ? (
@@ -92,7 +80,6 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
         {tab === "解析・設定" && (
           <>
             <h2 style={{ fontSize: 16, marginBottom: 10 }}>解析・設定判別</h2>
-            <Sources ev={m.sources.ev} lab={m.sources.lab} />
             {m.ev?.spec ? <Content html={m.ev.spec} /> : m.lab?.spec ? <Pending text="研究所の機種情報・設定判別を統合中（M6）。" /> : <Pending text="解析データは準備中です。" />}
           </>
         )}

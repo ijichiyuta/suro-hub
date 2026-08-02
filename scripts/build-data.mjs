@@ -65,8 +65,9 @@ function cleanLab(html, title, stripCalc) {
 const cleanPost = (pid, stripCalc) => { const p = byPost[pid]; if (!p) return ""; return cleanLab(p.content.rendered, p.title.rendered, stripCalc); };
 
 // ★リライト検証(情報不変ゲート): 原文の数字が1つも欠落せず、捏造(原文に無い数字)も無いことを確認。
-// タグ＋HTML実体(&#8211;等)を除去してから数字を抽出(実体コードを数値と誤認しない)
-const numSet = (html) => new Set(((html || "").replace(/<[^>]+>/g, " ").replace(/&#?[a-z0-9]+;/gi, " ").match(/\d+(?:\.\d+)?/g)) || []);
+// タグ＋HTML実体(&#8211;等)除去→整数ランのみ抽出。原文の「1.3.5.7周期」等のドット区切りを
+// 小数と誤読しないため \d+(整数ラン)で照合(小数24.2は両側とも24,2に割れるので判定は健全)。
+const numSet = (html) => new Set(((html || "").replace(/<[^>]+>/g, " ").replace(/&#?[a-z0-9]+;/gi, " ").match(/\d+/g)) || []);
 function verifyRewrite(orig, rw) {
   const a = numSet(orig), b = numSet(rw);
   const missing = [...a].filter((x) => !b.has(x));   // 原文の数字が欠落
