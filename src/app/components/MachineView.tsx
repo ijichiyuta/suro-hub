@@ -1,15 +1,15 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Star, Calculator } from "lucide-react";
 
 type Col = { id: number; title: string; date: string };
 type Machine = {
   id: string; name: string; aliases: string[]; maker: string; thumb: string; isNew: boolean;
-  hasCalc?: boolean; specCombined?: string;
+  hasCalc?: boolean; hasSpec?: boolean; hasShukei?: boolean;
   sources: { ev: boolean; lab: boolean };
-  lab: null | { specHtml?: string; shukeiHtml?: string; columns: Col[] };
-  ev: null | { slug: string; kdash: string | null; nerai: string; spec?: string; neraiOriginal?: string; rewritten?: boolean };
+  lab: null | { columns: Col[] };
+  ev: null | { slug: string; kdash: string | null; nerai: string; neraiOriginal?: string; rewritten?: boolean };
 };
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
@@ -21,11 +21,29 @@ function Content({ html }: { html: string }) {
 function Pending({ text }: { text: string }) {
   return <p style={{ color: "var(--light)", padding: "16px 0", fontSize: 13 }}>{text}</p>;
 }
+function Loading() {
+  return <p style={{ color: "var(--light)", padding: "16px 0", fontSize: 13 }}>読み込み中…</p>;
+}
 
 export default function MachineView({ machine: m }: { machine: Machine }) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("狙い目");
   const [calc, setCalc] = useState(false);
   const [orig, setOrig] = useState(false);
+  // 解析/集計HTMLは重いので遅延取得（狙い目タブは即表示のまま＝店内高速表示）
+  const [specData, setSpecData] = useState<{ spec: string; shukei: string; error?: boolean } | null>(null);
+  const [specLoading, setSpecLoading] = useState(false);
+  const needSpec = tab === "解析・設定" || tab === "大量集計";
+  useEffect(() => {
+    if (!needSpec || specData || specLoading) return;
+    if (!m.hasSpec && !m.hasShukei) return;
+    setSpecLoading(true);
+    fetch(`${BASE}/data/spec/${m.id}.json`)
+      .then((r) => r.json())
+      .then((d) => setSpecData(d))
+      .catch(() => setSpecData({ spec: "", shukei: "", error: true }))
+      .finally(() => setSpecLoading(false));
+  }, [needSpec, specData, specLoading, m.id, m.hasSpec, m.hasShukei]);
+
   const cols = m.lab?.columns || [];
   return (
     <>
@@ -80,20 +98,16 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
         {tab === "解析・設定" && (
           <>
             <h2 style={{ fontSize: 16, marginBottom: 10 }}>解析・設定判別</h2>
-            {m.specCombined
-              ? <Content html={m.specCombined} />
-              : m.lab?.specHtml
-                ? <Content html={m.lab.specHtml} />
-                : m.ev?.spec
-                  ? <Content html={m.ev.spec} />
-                  : <Pending text="解析データは準備中です。" />}
+            {m.hasSpec
+              ? specData ? (specData.spec ? <Content html={specData.spec} /> : <Pending text="解析データを読み込めませんでした。" />) : <Loading />
+              : <Pending text="解析データは準備中です。" />}
           </>
         )}
         {tab === "大量集計" && (
           <>
             <h2 style={{ fontSize: 16, marginBottom: 10 }}>大量集計</h2>
-            {m.lab?.shukeiHtml
-              ? <Content html={m.lab.shukeiHtml} />
+            {m.hasShukei
+              ? specData ? (specData.shukei ? <Content html={specData.shukei} /> : <Pending text="集計データを読み込めませんでした。" />) : <Loading />
               : cols.length
                 ? <Pending text="機種別の大量集計データは「コラム」タブの実践・考察記事にまとめています。" />
                 : <Pending text="大量集計データはありません。" />}

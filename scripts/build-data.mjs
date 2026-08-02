@@ -281,7 +281,37 @@ const index = machines.map((m) => ({
   sources: m.sources, k: [...new Set([norm(m.name), ...m.aliases.map(norm)])].filter(Boolean).join(" "),
 }));
 fs.writeFileSync(path.join(OUT, "index.json"), JSON.stringify(index));
-for (const m of machines) { const { _norm, ...out } = m; fs.writeFileSync(path.join(OUT, "machines", m.id + ".json"), JSON.stringify(out)); }
+
+// ★店内高速表示: 重い解析/集計HTML(全体の77%)を機種JSONから分離し、public/data/spec/<id>.json へ。
+//   狙い目タブ(実戦で必要な軽量コンテンツ)は機種JSONにインライン維持＝ページは即表示。
+//   解析/集計タブを開いたときだけ MachineView が spec ファイルを取得する(遅延読み込み)。
+const SPECOUT = path.join(ROOT, "public", "data", "spec");
+fs.rmSync(SPECOUT, { recursive: true, force: true });
+fs.mkdirSync(SPECOUT, { recursive: true });
+// 解析リライトのパイプライン(spec-prep/apply)用に、内部化済みの生spec(ev/lab別)を退避(build専用/gitignore)。
+//   機種JSONからは重い生specを剥がすため、リライト対象(未specCombined)の素材をここに保持する。
+const SPECRAW = path.join(ROOT, "data", "spec-raw");
+fs.rmSync(SPECRAW, { recursive: true, force: true });
+fs.mkdirSync(SPECRAW, { recursive: true });
+let splitBytes = 0, splitCount = 0;
+for (const m of machines) {
+  if (!m.specCombined && (m.ev?.spec || m.lab?.specHtml)) // 未リライト機種の素材をパイプライン用に保存
+    fs.writeFileSync(path.join(SPECRAW, m.id + ".json"), JSON.stringify({ name: m.name, ev: m.ev?.spec || "", lab: m.lab?.specHtml || "" }));
+  const specHtml = m.specCombined || m.lab?.specHtml || m.ev?.spec || ""; // 解析タブの表示優先順を確定
+  const shukeiHtml = m.lab?.shukeiHtml || "";                              // 大量集計タブ
+  if (specHtml || shukeiHtml) {
+    const payload = JSON.stringify({ spec: specHtml, shukei: shukeiHtml });
+    fs.writeFileSync(path.join(SPECOUT, m.id + ".json"), payload);
+    splitBytes += payload.length; splitCount++;
+  }
+  m.hasSpec = !!specHtml; m.hasShukei = !!shukeiHtml;
+  // 機種JSONから重いフィールドを除去(遅延取得へ)
+  const { _norm, specCombined, ...rest } = m;
+  if (rest.ev) { const { spec, ...evLight } = rest.ev; rest.ev = evLight; }
+  if (rest.lab) { const { specHtml: _s, shukeiHtml: _k, ...labLight } = rest.lab; rest.lab = labLight; }
+  fs.writeFileSync(path.join(OUT, "machines", m.id + ".json"), JSON.stringify(rest));
+}
+console.log(`解析/集計を分離(遅延読込): ${splitCount}機種 / ${(splitBytes / 1e6).toFixed(1)}MB → public/data/spec/`);
 
 console.log(`統合機種: ${machines.length}（両方:${machines.filter(m => m.sources.ev && m.sources.lab).length} / 研究所のみ:${machines.filter(m => m.sources.lab && !m.sources.ev).length} / 期待値のみ:${machines.filter(m => m.sources.ev && !m.sources.lab).length}）`);
 console.log(`期待値マッチ:${matched} / 新規追加:${added} / 記事ツール除外:${skipped}`);

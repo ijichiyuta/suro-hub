@@ -12,7 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
 const WORK = path.join(ROOT, "data", "spec-work");
 const REWRITES = path.join(ROOT, "data", "rewrites");
-const MACHDIR = path.join(ROOT, "src", "data", "machines");
+const SPECRAW = path.join(ROOT, "data", "spec-raw"); // 内部化済み生spec(ev/lab別)＝検証の基準
 
 const numSet = (html) => new Set(((html || "").replace(/<[^>]+>/g, " ").replace(/&#?[a-z0-9]+;/gi, " ").match(/\d+/g)) || []);
 const numMulti = (html) => ((html || "").replace(/<[^>]+>/g, " ").match(/\d+/g)) || [];
@@ -45,8 +45,8 @@ function apply(id) {
   let finalHtml = ($("body").html() || "").trim();
 
   // 全体検証: 統合前(内部化済)の両ソース数字の和集合を欠落なく含むか
-  const m = JSON.parse(fs.readFileSync(path.join(MACHDIR, id + ".json"), "utf-8"));
-  const baseUnion = numSet((m.ev?.spec || "") + " \n " + (m.lab?.specHtml || ""));
+  const raw = JSON.parse(fs.readFileSync(path.join(SPECRAW, id + ".json"), "utf-8"));
+  const baseUnion = numSet((raw.ev || "") + " \n " + (raw.lab || ""));
   const finalSet = numSet(finalHtml);
   const missingAll = [...baseUnion].filter((x) => !finalSet.has(x));
   const addedAll = [...finalSet].filter((x) => !baseUnion.has(x));

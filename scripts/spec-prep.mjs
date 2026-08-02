@@ -13,6 +13,7 @@ import { load as loadHtml } from "/Users/ijichiyuuta/.superset/projects/slolabo/
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
 const MACHDIR = path.join(ROOT, "src", "data", "machines");
+const SPECRAW = path.join(ROOT, "data", "spec-raw"); // build-dataが出力する内部化済み生spec(ev/lab別)
 const WORK = path.join(ROOT, "data", "spec-work");
 
 const numSeq = (html) => ((html || "").replace(/<[^>]+>/g, " ").match(/\d+/g) || []).join(",");
@@ -30,8 +31,11 @@ function evUnique($ev, labTableSigs) {
 }
 
 function prep(id) {
-  const m = JSON.parse(fs.readFileSync(path.join(MACHDIR, id + ".json"), "utf-8"));
-  const ev = m.ev?.spec || "", lab = m.lab?.specHtml || "";
+  const rawFile = path.join(SPECRAW, id + ".json");
+  if (!fs.existsSync(rawFile)) return null; // 既にリライト済(specCombined)か、spec無し
+  const raw = JSON.parse(fs.readFileSync(rawFile, "utf-8"));
+  const m = { name: raw.name, ev: { spec: raw.ev }, lab: { specHtml: raw.lab } };
+  const ev = raw.ev || "", lab = raw.lab || "";
   if (!ev && !lab) return null;
 
   // 統合DOM構築
@@ -79,10 +83,7 @@ function prep(id) {
 let ids = process.argv.slice(2);
 if (!ids.length) { console.error("usage: node spec-prep.mjs <id|ALL> [id...]"); process.exit(1); }
 if (ids[0] === "ALL") {
-  ids = fs.readdirSync(MACHDIR).map((f) => f.replace(/\.json$/, "")).filter((id) => {
-    const m = JSON.parse(fs.readFileSync(path.join(MACHDIR, id + ".json"), "utf-8"));
-    return (m.ev?.spec || m.lab?.specHtml);
-  });
+  ids = fs.readdirSync(SPECRAW).filter((f) => f.endsWith(".json")).map((f) => f.replace(/\.json$/, ""));
 }
 let ok = 0;
 for (const id of ids) {
