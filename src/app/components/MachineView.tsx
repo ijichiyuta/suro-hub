@@ -9,7 +9,7 @@ type Machine = {
   hasCalc?: boolean;
   sources: { ev: boolean; lab: boolean };
   lab: null | { nerai: number | null; spec: number | null; shukei: number | null; columns: Col[] };
-  ev: null | { slug: string; kdash: string | null; nerai: string; spec: string };
+  ev: null | { slug: string; kdash: string | null; nerai: string; spec: string; neraiOriginal?: string; rewritten?: boolean };
 };
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
@@ -34,6 +34,7 @@ function Sources({ ev, lab }: { ev: boolean; lab: boolean }) {
 export default function MachineView({ machine: m }: { machine: Machine }) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("狙い目");
   const [calc, setCalc] = useState(false);
+  const [orig, setOrig] = useState(false);
   const cols = m.lab?.columns || [];
   return (
     <>
@@ -63,9 +64,16 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
       <main className="pad" style={{ paddingTop: 15 }}>
         {tab === "狙い目" && (
           <>
-            <h2 style={{ fontSize: 16, marginBottom: 10 }}>狙い目・期待値</h2>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <h2 style={{ fontSize: 16 }}>狙い目・期待値</h2>
+              {m.ev?.rewritten && m.ev.neraiOriginal && (
+                <button onClick={() => setOrig(!orig)} style={{ background: "none", border: "1px solid var(--border)", borderRadius: 4, padding: "4px 10px", color: "var(--sub)", fontWeight: 700, fontSize: 12 }}>
+                  {orig ? "編集版に戻す" : "原文を見る"}
+                </button>
+              )}
+            </div>
             <Sources ev={m.sources.ev} lab={m.sources.lab} />
-            {m.ev?.nerai && <Content html={m.ev.nerai} />}
+            {m.ev?.nerai && <Content html={orig && m.ev.neraiOriginal ? m.ev.neraiOriginal : m.ev.nerai} />}
             {m.hasCalc ? (
               calc ? (
                 <div style={{ marginTop: 16 }}>

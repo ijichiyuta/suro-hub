@@ -5,6 +5,7 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
+import { load as loadHtml } from "/Users/ijichiyuuta/.superset/projects/slolabo/scraper/node_modules/cheerio/dist/commonjs/index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
@@ -39,6 +40,39 @@ const cleanEv = (html) => {
 };
 const idOf = (name) => "m" + crypto.createHash("md5").update(name).digest("hex").slice(0, 10);
 const postMeta = (id) => { const p = byPost[id]; if (!p) return null; return { id, title: decode((p.title.rendered || "").trim()), date: (p.date || "").slice(0, 10), cats: p.categories || [] }; };
+
+// 研究所投稿HTMLのクリーニング(slolabo gen.mjs cleanを踏襲)。stripCalc=計算ツールDOM/データを除去(別途iframe表示)。
+function cleanLab(html, title, stripCalc) {
+  const $ = loadHtml(html || "");
+  ["style", "noscript", "link", "#hamburger-menu", ".draggable", "[class*=menu-content]",
+    ".updateItem", ".update-information", "[class*=updateList]", "img.icon", "img[src*=update3]", "img[alt=update]",
+    "[class*=new-close]", ".wpfp-span", ".wpfp-link", "[class*=wpfp]", "a.not-decoration", "[class*=breadcrumb]", ".helptip"].forEach((sel) => { try { $(sel).remove(); } catch {} });
+  if (stripCalc) { $("#kitaichiCalculationTool2, #hosokuWrap").remove(); $("script:not([src])").each((i, e) => { if (/labelList2/.test($(e).html() || "")) $(e).remove(); }); }
+  const T = (title || "").replace(/\s+/g, "");
+  if (T) $("h1, h2").each((i, e) => { if ($(e).text().replace(/\s+/g, "") === T) { $(e).remove(); return false; } });
+  $("#columnIndex").remove();
+  $("h1, h2, h3, h4").each((i, e) => { const t = $(e).text().replace(/\s+/g, ""); if (/^目次$/.test(t)) { $(e).remove(); return; } if (/^更新情報/.test(t)) { const nx = $(e).next(); $(e).remove(); if (nx.is("table")) nx.remove(); } });
+  $("div.right").each((i, e) => { if (/\d{4}\/\d{1,2}\/\d{1,2}.*公開/.test($(e).text())) $(e).remove(); });
+  $(".js-menu, .js-menu2, .js-menu3").each((i, e) => { const $e = $(e); if (/更新情報|目次/.test($e.text())) { const nx = $e.next(); if (nx && /contents/.test(nx.attr("class") || "")) nx.remove(); $e.remove(); } });
+  $("script[src]").remove();
+  $("script:not([src])").each((i, e) => { const c = $(e).html() || ""; if (/adsbygoogle|gtag\(|dataLayer|googletag|gtm\.|fbq\(/i.test(c)) $(e).remove(); });
+  $("a").each((i, e) => { const t = $(e).text().trim(); if (/ページの一番上へ|トップページへ|元の場所に戻る|見出しを閉じる|全て開く|メニューを開閉|大見出しを開く|大見出し、中見出しを開く/.test(t)) $(e).remove(); });
+  $("li").each((i, e) => { const t = $(e).text().replace(/\s+/g, ""); if (t === "" || t === "。" || t === "・") $(e).remove(); });
+  $("img").each((i, e) => { const $e = $(e); let s = $e.attr("data-src") || $e.attr("src"); if (s && s.startsWith("/")) s = "https://slolaboratory.com" + s; if (s) { $e.attr("src", s); $e.removeAttr("data-src"); $e.removeAttr("srcset"); $e.attr("loading", "lazy"); } });
+  $("a").each((i, e) => { let h = $(e).attr("href"); if (h && h.startsWith("/")) $(e).attr("href", "https://slolaboratory.com" + h); });
+  return ($("body").html() || "").replace(/（タップで開閉）/g, "").trim();
+}
+const cleanPost = (pid, stripCalc) => { const p = byPost[pid]; if (!p) return ""; return cleanLab(p.content.rendered, p.title.rendered, stripCalc); };
+
+// ★リライト検証(情報不変ゲート): 原文の数字が1つも欠落せず、捏造(原文に無い数字)も無いことを確認。
+const numSet = (html) => new Set(((html || "").replace(/<[^>]+>/g, " ").match(/\d+(?:\.\d+)?/g)) || []);
+function verifyRewrite(orig, rw) {
+  const a = numSet(orig), b = numSet(rw);
+  const missing = [...a].filter((x) => !b.has(x));   // 原文の数字が欠落
+  const added = [...b].filter((x) => !a.has(x));      // 原文に無い数字(捏造)
+  return { ok: missing.length === 0 && added.length === 0, missing, added };
+}
+const REWRITES = path.join(ROOT, "data", "rewrites");
 
 // 辞書: norm(任意名) -> {canon, aliases, maker, dirthumb}
 const dirByNorm = new Map();
@@ -101,6 +135,20 @@ for (const e of ev) {
 
 // 出力
 const machines = [...unified.values()].sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0) || a.name.localeCompare(b.name, "ja"));
+
+// ★リライト適用（data/rewrites/<id>.json）＋情報不変ゲート。検証NGは適用せず原文を維持。
+let rwOk = 0, rwNg = 0;
+for (const m of machines) {
+  const rwFile = path.join(REWRITES, m.id + ".json");
+  if (!fs.existsSync(rwFile) || !m.ev) continue;
+  const rw = JSON.parse(fs.readFileSync(rwFile, "utf-8"));
+  if (rw.nerai && m.ev.nerai) {
+    const v = verifyRewrite(m.ev.nerai, rw.nerai);
+    if (v.ok) { m.ev.neraiOriginal = m.ev.nerai; m.ev.nerai = rw.nerai; m.ev.rewritten = true; rwOk++; }
+    else { console.warn(`⚠ リライト検証NG(不適用): ${m.name} 欠落数字:${v.missing.join(",")} 捏造数字:${v.added.join(",")}`); rwNg++; }
+  }
+}
+console.log(`リライト適用: OK ${rwOk} / 検証NG(原文維持) ${rwNg}`);
 const index = machines.map((m) => ({
   id: m.id, name: m.name, maker: m.maker, thumb: m.thumb, isNew: m.isNew,
   sources: m.sources, k: [...new Set([norm(m.name), ...m.aliases.map(norm)])].filter(Boolean).join(" "),
