@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
-import { Noto_Sans_JP, Poppins } from "next/font/google";
+import { Noto_Sans_JP, Inter } from "next/font/google";
 import "./globals.css";
+import TabBar from "./components/TabBar";
 
 const noto = Noto_Sans_JP({
   variable: "--font-noto",
   subsets: ["latin"],
-  weight: ["400", "500", "700", "900"],
+  weight: ["400", "500", "700", "800"],
   display: "swap",
 });
-
-const poppins = Poppins({
-  variable: "--font-poppins",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
-  weight: ["600", "700", "800"],
+  weight: ["500", "600", "700"],
   display: "swap",
 });
 
@@ -26,8 +26,13 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ja" className={`${noto.variable} ${poppins.variable}`}>
-      <body>{children}</body>
+    <html lang="ja" className={`${noto.variable} ${inter.variable}`}>
+      <body>
+        <div className="app">
+          {children}
+          <TabBar />
+        </div>
+      </body>
     </html>
   );
 }
