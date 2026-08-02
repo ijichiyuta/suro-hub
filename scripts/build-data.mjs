@@ -207,28 +207,21 @@ if (dupGroups.length) {
   for (const [k, v] of dupGroups) console.warn(`   [${k}] ${v.map((m) => m.name + "(" + (m.sources.ev && m.sources.lab ? "両" : m.sources.ev ? "期" : "研") + ")").join(" ／ ")}`);
 } else console.log("重複チェック: OK（同一正規化キーの重複なし）");
 
-// ★リライト適用（data/rewrites/<id>.json）＋情報不変ゲート。検証NGは適用せず原文を維持。
+// ★狙い目リライト適用（data/rewrites/<id>.json の nerai）＋情報不変ゲート。検証NGは原文維持。
+//   ※解析(spec)リライトは「リンク内部化の後」に適用する（rw.spec は内部化済み本文を基に生成しており、
+//     ゲートの基準も内部化済みの spec に揃える必要があるため。下部の内部化パス後で処理）。
 let rwOk = 0, rwNg = 0, rwSpecOk = 0, rwSpecNg = 0;
 for (const m of machines) {
   const rwFile = path.join(REWRITES, m.id + ".json");
   if (!fs.existsSync(rwFile)) continue;
   const rw = JSON.parse(fs.readFileSync(rwFile, "utf-8"));
-  // 狙い目
   if (rw.nerai && m.ev && m.ev.nerai) {
     const v = verifyRewrite(m.ev.nerai, rw.nerai);
     if (v.ok) { m.ev.neraiOriginal = m.ev.nerai; m.ev.nerai = rw.nerai; m.ev.rewritten = true; rwOk++; }
     else { console.warn(`⚠ 狙い目リライト検証NG(不適用): ${m.name} 欠落数字:${v.missing.join(",")} 捏造数字:${v.added.join(",")}`); rwNg++; }
   }
-  // 解析(期待値サイト解析 + 研究所機種情報 の合算リライト)
-  const evSpec = m.ev?.spec || "", labSpec = m.lab?.specHtml || "";
-  if (rw.spec && (evSpec || labSpec)) {
-    const v = verifyRewrite(evSpec + " \n " + labSpec, rw.spec);  // 両ソースの数字の和集合を保持
-    if (v.ok) { m.specCombined = rw.spec; if (m.ev) delete m.ev.spec; if (m.lab) delete m.lab.specHtml; rwSpecOk++; }
-    else { console.warn(`⚠ 解析リライト検証NG(不適用): ${m.name} 欠落:${v.missing.slice(0, 8).join(",")} 捏造:${v.added.slice(0, 8).join(",")}`); rwSpecNg++; }
-  }
 }
 console.log(`狙い目リライト: OK ${rwOk} / NG ${rwNg}`);
-console.log(`解析リライト(合算): OK ${rwSpecOk} / NG ${rwSpecNg}`);
 
 // ★内部記事レジストリ: 期待値サイトで「機種」化しなかった記事(実践データ/狙い/考察等)を
 //   内部ページ /a/<aid> として復元し、サイト外へ誘導していたリンクの受け皿にする。
@@ -259,6 +252,23 @@ for (const m of machines) {
   if (m.specCombined) m.specCombined = internalizeLinks(m.specCombined, maps);
 }
 for (const a of articles) a.html = internalizeLinks(a.html, maps);
+
+// ★解析(spec)リライト適用（内部化後）＋情報不変ゲート。rw.spec は表・画像を無改変のまま説明文だけ
+//   リライトした「統合済み解析HTML」。基準=内部化済みの両ソース数字の和集合(欠落0を必須/捏造は許容)。
+for (const m of machines) {
+  const rwFile = path.join(REWRITES, m.id + ".json");
+  if (!fs.existsSync(rwFile)) continue;
+  const rw = JSON.parse(fs.readFileSync(rwFile, "utf-8"));
+  if (!rw.spec) continue;
+  const evSpec = m.ev?.spec || "", labSpec = m.lab?.specHtml || "";
+  if (!evSpec && !labSpec) continue;
+  const specClean = internalizeLinks(rw.spec, maps); // リライト側にも内部化を適用(念のため)
+  const v = verifyRewrite(evSpec + " \n " + labSpec, specClean);
+  if (v.ok) { m.specCombined = specClean; if (m.ev) delete m.ev.spec; if (m.lab) delete m.lab.specHtml; rwSpecOk++; }
+  else { console.warn(`⚠ 解析リライト検証NG(不適用): ${m.name} 欠落:${v.missing.slice(0, 8).join(",")} 捏造:${v.added.slice(0, 8).join(",")}`); rwSpecNg++; }
+}
+console.log(`解析リライト: OK ${rwSpecOk} / NG ${rwSpecNg}`);
+
 // 記事出力
 fs.rmSync(path.join(OUT, "articles"), { recursive: true, force: true });
 fs.mkdirSync(path.join(OUT, "articles"), { recursive: true });

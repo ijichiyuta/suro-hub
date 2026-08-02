@@ -17,8 +17,10 @@ const WORK = path.join(ROOT, "data", "spec-work");
 
 const numSeq = (html) => ((html || "").replace(/<[^>]+>/g, " ").match(/\d+/g) || []).join(",");
 const numUnion = (html) => [...new Set(((html || "").replace(/<[^>]+>/g, " ").replace(/&#?[a-z0-9]+;/gi, " ").match(/\d+/g)) || [])];
-// 書き換え対象ブロック: これらのタグで、内部に table/img を含まず、テキストが一定以上のもの。
-const PROSE_TAGS = "p, li, figcaption, h2, h3, h4, h5, dt, dd";
+// 書き換え対象ブロック: 説明文(p/li/figcaption/dd)で内部に table/img を含まず、実質的な長さのもの。
+//   ※見出し(h2-h5)や短い打ち方指示(「赤7狙い」等)はどのサイトも同表現＝コピー懸念が低いので対象外(原文維持)。
+const PROSE_TAGS = "p, li, figcaption, dd";
+const MIN_PROSE = 30; // これ未満は原文維持（断片化した打ち方一行等）
 
 // evのbodyから「labに既出の表(数字列一致)」を取り除き、ev独自の残りを返す(統合用)。
 function evUnique($ev, labTableSigs) {
@@ -57,7 +59,7 @@ function prep(id) {
     if ($e.find("table, img").length) return;         // 表/画像を内包する要素は触らない
     const inner = ($e.html() || "").trim();
     const txt = $e.text().replace(/\s+/g, " ").trim();
-    if (txt.length < 8) return;                        // 短すぎる断片は対象外
+    if (txt.replace(/\s/g, "").length < MIN_PROSE) return; // 短い断片(打ち方一行/ラベル)は原文維持
     if (!/[ぁ-んァ-ヶ一-鿿]/.test(txt)) return;         // 日本語を含まない(記号のみ等)は対象外
     const idx = prose.length;
     $e.attr("data-ri", String(idx));
