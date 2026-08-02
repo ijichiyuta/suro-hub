@@ -25,7 +25,11 @@ const byPost = {}; posts.forEach((p) => (byPost[p.id] = p));
 const decode = (s) => (s || "").replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n)).replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16))).replace(/&amp;/g, "&");
 const kana = (s) => (s || "").replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
 const norm = (s) => kana((s || "").normalize("NFKC").toLowerCase()).replace(/[^0-9a-zぁ-ん一-鿿]/gu, "");
-const stripPre = (n) => n.replace(/^(スマスロ|スマパチ|パチスロ|新パチスロ|ぱちすろ|l|s|a)/, "");
+// ★重要: norm()はカタカナ→ひらがな変換を先に行うため、stripPreに渡る文字列は既にひらがな。
+//   旧実装はカタカナの「スマスロ/スマパチ/パチスロ」を並べていたが、入力がひらがな化済みのため
+//   永久にマッチせず（＝「スマスロモンキーターンV」の接頭辞が剥がれず、ev「LモンキーターンV」と
+//   別機種扱いになり重複していた）。ひらがな形(すますろ/すまぱち/新ぱちすろ 等)を追加して修正。
+const stripPre = (n) => n.replace(/^(すますろ|すまぱち|新ぱちすろ|ぱちすろ|スマスロ|スマパチ|パチスロ|新パチスロ|l|s|a)/, "");
 const badThumb = (t) => !t || /add_favo|loading|\.gif$/i.test(t);
 // 期待値サイトの静的HTML(狙い目/解析)を描画用にクリーニング（scriptなし＝そのまま使える）
 const cleanEv = (html) => {
@@ -137,6 +141,20 @@ for (const e of ev) {
 
 // 出力
 const machines = [...unified.values()].sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0) || a.name.localeCompare(b.name, "ja"));
+
+// ★重複検知(非破壊): 正規化キー(stripPre(norm(name)))が衝突する＝同一機種が2件に割れている可能性。
+//   月次更新でev/labの名称ゆらぎにより再発しうるため、ビルド毎に警告を出す。data/dedup-keep-separate.json
+//   に「別機種として残す」正規化キーを列挙すれば警告を抑制できる(誤検知の除外用)。
+let keepSeparate = [];
+try { keepSeparate = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "dedup-keep-separate.json"), "utf-8")); } catch {}
+const dupKey = (m) => stripPre(norm(m.name));
+const byDupKey = new Map();
+for (const m of machines) { const k = dupKey(m); if (!k) continue; if (!byDupKey.has(k)) byDupKey.set(k, []); byDupKey.get(k).push(m); }
+const dupGroups = [...byDupKey.entries()].filter(([k, v]) => v.length > 1 && !keepSeparate.includes(k));
+if (dupGroups.length) {
+  console.warn(`⚠ 重複の可能性 ${dupGroups.length}件（同一正規化キーで複数機種）— 要確認:`);
+  for (const [k, v] of dupGroups) console.warn(`   [${k}] ${v.map((m) => m.name + "(" + (m.sources.ev && m.sources.lab ? "両" : m.sources.ev ? "期" : "研") + ")").join(" ／ ")}`);
+} else console.log("重複チェック: OK（同一正規化キーの重複なし）");
 
 // ★リライト適用（data/rewrites/<id>.json）＋情報不変ゲート。検証NGは適用せず原文を維持。
 let rwOk = 0, rwNg = 0, rwSpecOk = 0, rwSpecNg = 0;
