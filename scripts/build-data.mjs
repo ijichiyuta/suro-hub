@@ -64,9 +64,11 @@ for (const m of lab) {
     _norm: [norm(m.name), stripPre(norm(m.name))],
   });
 }
-// ラボの norm 逆引き
+// ラボの norm 逆引き（★統合マッチは「機種自身の名前」のみ。辞書別名は使わない＝別機種の誤統合を防ぐ。
+//   例: 研究所辞書はLヤバチバの別名に「花笠/チバリヨ」等の別機種名を含むため、別名マッチすると
+//   ev「花笠」機種の内容がヤバチバに誤って上書きされる。→ 別名は検索用のみに限定。）
 const labByNorm = new Map();
-for (const [id, mc] of unified) { for (const k of [...mc._norm, ...mc.aliases.map(norm)]) if (k) if (!labByNorm.has(k)) labByNorm.set(k, id); }
+for (const [id, mc] of unified) { for (const k of mc._norm) if (k && !labByNorm.has(k)) labByNorm.set(k, id); }
 
 // 期待値機種をマッチ（記事/ツールは除外）
 const artRe = /狙い|実践|考察|シミュ|紹介|について|履歴|打法|データ|サブスク|note|優遇冷遇|突入契機|重視すべき/;
@@ -79,7 +81,9 @@ for (const e of ev) {
   const neraiHtml = cleanEv((e.nerai_html || "") + (e.tenjo_html && !/(狙い目|天井)/.test(e.nerai_html || "") ? e.tenjo_html : ""));
   const evData = { slug: e.slug, kdash: e.kdash_url || null, nerai: neraiHtml, spec: cleanEv(e.kaiseki_html || "") };
   if (hitId) {
-    const mc = unified.get(hitId); mc.sources.ev = true; mc.ev = evData;
+    const mc = unified.get(hitId);
+    if (mc.ev) { skipped++; continue; }   // 既に別のev機種が紐付いていれば上書きしない(誤混入防止)
+    mc.sources.ev = true; mc.ev = evData;
     if (!mc.thumb && !badThumb(e.thumb)) mc.thumb = e.thumb;
     matched++;
   } else {
