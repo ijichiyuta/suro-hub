@@ -6,10 +6,12 @@ import { ChevronLeft, ChevronRight, Star, Calculator } from "lucide-react";
 type Col = { id: number; title: string; date: string };
 type Machine = {
   id: string; name: string; aliases: string[]; maker: string; thumb: string; isNew: boolean;
+  hasCalc?: boolean;
   sources: { ev: boolean; lab: boolean };
   lab: null | { nerai: number | null; spec: number | null; shukei: number | null; columns: Col[] };
   ev: null | { slug: string; kdash: string | null; nerai: string; spec: string };
 };
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
 const TABS = ["狙い目", "解析・設定", "大量集計", "コラム"] as const;
 
@@ -31,6 +33,7 @@ function Sources({ ev, lab }: { ev: boolean; lab: boolean }) {
 
 export default function MachineView({ machine: m }: { machine: Machine }) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("狙い目");
+  const [calc, setCalc] = useState(false);
   const cols = m.lab?.columns || [];
   return (
     <>
@@ -62,11 +65,20 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
           <>
             <h2 style={{ fontSize: 16, marginBottom: 10 }}>狙い目・期待値</h2>
             <Sources ev={m.sources.ev} lab={m.sources.lab} />
-            {m.ev?.nerai
-              ? <><Content html={m.ev.nerai} /><button className="btn" style={{ marginTop: 18 }}><Calculator size={18} /> 期待値を計算</button></>
-              : m.lab?.nerai
-                ? <><button className="btn"><Calculator size={18} /> 期待値を計算</button><Pending text="研究所の期待値表・狙い目を計算ツールとして統合中（M6）。" /></>
-                : <Pending text="この機種の狙い目データは準備中です。" />}
+            {m.ev?.nerai && <Content html={m.ev.nerai} />}
+            {m.hasCalc ? (
+              calc ? (
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                    <h3 style={{ fontSize: 15 }}>期待値計算ツール</h3>
+                    <button onClick={() => setCalc(false)} style={{ background: "none", border: "none", color: "var(--sub)", fontWeight: 700, fontSize: 13 }}>閉じる</button>
+                  </div>
+                  <iframe src={`${BASE}/calc/${m.id}.html`} title="期待値計算ツール" style={{ width: "100%", height: "78vh", border: "1px solid var(--border)", borderRadius: 6, background: "#fff" }} />
+                </div>
+              ) : (
+                <button className="btn" style={{ marginTop: 16 }} onClick={() => setCalc(true)}><Calculator size={18} /> 期待値を計算する</button>
+              )
+            ) : (!m.ev?.nerai && <Pending text="この機種の狙い目データは準備中です。" />)}
           </>
         )}
         {tab === "解析・設定" && (
