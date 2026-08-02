@@ -26,6 +26,17 @@ const kana = (s) => (s || "").replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c
 const norm = (s) => kana((s || "").normalize("NFKC").toLowerCase()).replace(/[^0-9a-zぁ-ん一-鿿]/gu, "");
 const stripPre = (n) => n.replace(/^(スマスロ|スマパチ|パチスロ|新パチスロ|ぱちすろ|l|s|a)/, "");
 const badThumb = (t) => !t || /add_favo|loading|\.gif$/i.test(t);
+// 期待値サイトの静的HTML(狙い目/解析)を描画用にクリーニング（scriptなし＝そのまま使える）
+const cleanEv = (html) => {
+  if (!html) return "";
+  let h = html;
+  h = h.replace(/<img[^>]*machine-thumbnail[^>]*>/gi, "");        // 先頭の重複サムネ除去
+  h = h.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, "");
+  h = h.replace(/\s(srcset|sizes|style|width|height|loading|decoding|class)="[^"]*"/gi, "");
+  h = h.replace(/(<img[^>]+src=")\/(?!\/)/gi, "$1https://suroschool.jp/"); // 相対→絶対
+  h = h.replace(/<img /gi, '<img loading="lazy" ');
+  return h.trim();
+};
 const idOf = (name) => "m" + crypto.createHash("md5").update(name).digest("hex").slice(0, 10);
 const postMeta = (id) => { const p = byPost[id]; if (!p) return null; return { id, title: decode((p.title.rendered || "").trim()), date: (p.date || "").slice(0, 10), cats: p.categories || [] }; };
 
@@ -65,7 +76,8 @@ for (const e of ev) {
   if (!name || artRe.test(name)) { skipped++; continue; }
   const n = norm(name), s = stripPre(n);
   const hitId = labByNorm.get(n) || labByNorm.get(s);
-  const evData = { thumb: e.thumb, neraiHtml: !!e.nerai_html, kaisekiHtml: !!e.kaiseki_html, tenjoHtml: !!e.tenjo_html, kdash: e.kdash_url || null, slug: e.slug };
+  const neraiHtml = cleanEv((e.nerai_html || "") + (e.tenjo_html && !/(狙い目|天井)/.test(e.nerai_html || "") ? e.tenjo_html : ""));
+  const evData = { slug: e.slug, kdash: e.kdash_url || null, nerai: neraiHtml, spec: cleanEv(e.kaiseki_html || "") };
   if (hitId) {
     const mc = unified.get(hitId); mc.sources.ev = true; mc.ev = evData;
     if (!mc.thumb && !badThumb(e.thumb)) mc.thumb = e.thumb;

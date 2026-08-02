@@ -8,22 +8,23 @@ type Machine = {
   id: string; name: string; aliases: string[]; maker: string; thumb: string; isNew: boolean;
   sources: { ev: boolean; lab: boolean };
   lab: null | { nerai: number | null; spec: number | null; shukei: number | null; columns: Col[] };
-  ev: null | { neraiHtml: boolean; kaisekiHtml: boolean; tenjoHtml: boolean; kdash: string | null };
+  ev: null | { slug: string; kdash: string | null; nerai: string; spec: string };
 };
 
 const TABS = ["狙い目", "解析・設定", "大量集計", "コラム"] as const;
 
-function SrcNote({ items }: { items: [boolean, string][] }) {
-  const on = items.filter(([b]) => b);
-  if (!on.length) return <p style={{ color: "var(--light)", padding: "18px 0" }}>この項目のデータは準備中です。</p>;
+function Content({ html }: { html: string }) {
+  return <div className="content" dangerouslySetInnerHTML={{ __html: html }} />;
+}
+function Pending({ text }: { text: string }) {
+  return <p style={{ color: "var(--light)", padding: "16px 0", fontSize: 13 }}>{text}</p>;
+}
+function Sources({ ev, lab }: { ev: boolean; lab: boolean }) {
   return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: 6, padding: "4px 12px", marginBottom: 14 }}>
-      {on.map(([, t]) => (
-        <div className="kv" key={t} style={{ borderBottom: "1px solid var(--line)" }}>
-          <span className="k">{t.split("｜")[0]}</span>
-          <span className="v" style={{ color: "var(--sub)", fontSize: 13 }}>{t.split("｜")[1]}</span>
-        </div>
-      ))}
+    <div style={{ display: "flex", gap: 5, alignItems: "center", marginBottom: 12 }}>
+      <span className="eyebrow" style={{ marginRight: 2 }}>出典</span>
+      {ev && <i className="badge blue">期待値</i>}
+      {lab && <i className="badge">研究所</i>}
     </div>
   );
 }
@@ -59,22 +60,26 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
       <main className="pad" style={{ paddingTop: 15 }}>
         {tab === "狙い目" && (
           <>
-            <h2 style={{ fontSize: 16, marginBottom: 12 }}>狙い目・期待値</h2>
-            <SrcNote items={[[!!m.ev?.neraiHtml, "期待値サイト｜狙い目・期待値表"], [!!m.ev?.tenjoHtml, "期待値サイト｜天井"], [!!m.lab?.nerai, "研究所｜期待値表・狙い目 記事"]]} />
-            <button className="btn"><Calculator size={18} /> この機種で期待値を計算</button>
-            <p style={{ color: "var(--light)", fontSize: 12, marginTop: 10 }}>※ 狙い目（ゲーム数／スルー回数／状態別）と期待値表・計算ツールを統合中（M6）。</p>
+            <h2 style={{ fontSize: 16, marginBottom: 10 }}>狙い目・期待値</h2>
+            <Sources ev={m.sources.ev} lab={m.sources.lab} />
+            {m.ev?.nerai
+              ? <><Content html={m.ev.nerai} /><button className="btn" style={{ marginTop: 18 }}><Calculator size={18} /> 期待値を計算</button></>
+              : m.lab?.nerai
+                ? <><button className="btn"><Calculator size={18} /> 期待値を計算</button><Pending text="研究所の期待値表・狙い目を計算ツールとして統合中（M6）。" /></>
+                : <Pending text="この機種の狙い目データは準備中です。" />}
           </>
         )}
         {tab === "解析・設定" && (
           <>
-            <h2 style={{ fontSize: 16, marginBottom: 12 }}>解析・設定判別</h2>
-            <SrcNote items={[[!!m.ev?.kaisekiHtml, "期待値サイト｜解析・設定判別"], [!!m.lab?.spec, "研究所｜機種情報・設定判別 記事"]]} />
+            <h2 style={{ fontSize: 16, marginBottom: 10 }}>解析・設定判別</h2>
+            <Sources ev={m.sources.ev} lab={m.sources.lab} />
+            {m.ev?.spec ? <Content html={m.ev.spec} /> : m.lab?.spec ? <Pending text="研究所の機種情報・設定判別を統合中（M6）。" /> : <Pending text="解析データは準備中です。" />}
           </>
         )}
         {tab === "大量集計" && (
           <>
-            <h2 style={{ fontSize: 16, marginBottom: 12 }}>大量集計</h2>
-            <SrcNote items={[[!!m.ev?.kdash, "期待値サイト｜集計ダッシュボード"], [!!m.lab?.shukei, "研究所｜大量集計・考察コラム"]]} />
+            <h2 style={{ fontSize: 16, marginBottom: 10 }}>大量集計</h2>
+            {m.lab?.shukei || m.ev?.kdash ? <Pending text="ゾーン当選率・サンプル集計を統合中（M6）。" /> : <Pending text="大量集計データはありません。" />}
           </>
         )}
         {tab === "コラム" && (
@@ -87,7 +92,7 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
                 </span>
                 <ChevronRight className="chev" size={18} />
               </div>
-            )) : <p style={{ color: "var(--light)", padding: "18px 0" }}>関連コラムは準備中です。</p>}
+            )) : <Pending text="関連コラムはありません。" />}
           </div>
         )}
       </main>
