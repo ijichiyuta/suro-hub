@@ -1,0 +1,153 @@
+@import "tailwindcss";
+
+/* ===== smartconnect デザイントークン ===== */
+:root {
+  /* Brand gradient (Blue→Teal→Green) */
+  --blue: #0068b7;
+  --teal: #00a5ae;
+  --green: #2eae6d;
+  --grad: linear-gradient(100deg, #0068b7 5%, #00a5ae 52%, #2eae6d 95%);
+
+  /* Neutrals */
+  --navy: #0a1628;
+  --ink: #1a2b4a;
+  --sub: #5a6b87;
+  --light: #8d9bb5;
+  --bg: #f6f9fc;
+  --border: #e1e8f0;
+  --white: #ffffff;
+
+  /* Spacing (8pxグリッド) */
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+
+  /* Shadow (淡く) */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.1);
+
+  --ease-out: cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+/* Tailwind v4 にトークンを露出（bg-brand-blue 等で使える） */
+@theme inline {
+  --color-brand-blue: var(--blue);
+  --color-brand-teal: var(--teal);
+  --color-brand-green: var(--green);
+  --color-ink: var(--ink);
+  --color-sub: var(--sub);
+  --color-bg: var(--bg);
+  --color-border: var(--border);
+  --font-jp: var(--font-noto), sans-serif;
+  --font-en: var(--font-poppins), sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  background: var(--white);
+  color: var(--ink);
+  font-family: var(--font-noto), "Noto Sans JP", sans-serif;
+  line-height: 1.8;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  color: var(--ink);
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+  font-weight: 900;
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* セクションラベル（グラデ線つき） */
+.sec-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-poppins), sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+.sec-label::before {
+  content: "";
+  width: 26px;
+  height: 2px;
+  background: var(--grad);
+  border-radius: 2px;
+}
+
+/* ボタン */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 30px;
+  font-weight: 700;
+  font-size: 15px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: none;
+  transition: transform 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
+}
+.btn-primary {
+  background: var(--grad);
+  color: #fff;
+  box-shadow: 0 10px 26px rgba(0, 68, 183, 0.3);
+}
+.btn-primary:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 32px rgba(0, 68, 183, 0.4);
+}
+
+/* カード */
+.card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  transition: transform 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out);
+}
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* グラデーションテキスト */
+.grad-text {
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
