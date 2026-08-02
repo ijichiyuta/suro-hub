@@ -95,7 +95,7 @@ for (const m of lab) {
     id, name: m.name, aliases: di ? di.aliases : [], maker: di ? di.maker : "",
     thumb: !badThumb(m.thumb) ? m.thumb : (di && !badThumb(di.th) ? di.th : ""),
     isNew: !!m.isNew, sources: { lab: true, ev: false },
-    lab: { nerai: m.sections?.nerai || null, spec: m.sections?.spec || null, shukei: m.sections?.shukei || null, columns: cols },
+    lab: { specHtml: cleanPost(m.sections?.spec, false), shukeiHtml: cleanPost(m.sections?.shukei, false), columns: cols },
     ev: null,
     _norm: [norm(m.name), stripPre(norm(m.name))],
   });
@@ -139,18 +139,27 @@ for (const e of ev) {
 const machines = [...unified.values()].sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0) || a.name.localeCompare(b.name, "ja"));
 
 // ★リライト適用（data/rewrites/<id>.json）＋情報不変ゲート。検証NGは適用せず原文を維持。
-let rwOk = 0, rwNg = 0;
+let rwOk = 0, rwNg = 0, rwSpecOk = 0, rwSpecNg = 0;
 for (const m of machines) {
   const rwFile = path.join(REWRITES, m.id + ".json");
-  if (!fs.existsSync(rwFile) || !m.ev) continue;
+  if (!fs.existsSync(rwFile)) continue;
   const rw = JSON.parse(fs.readFileSync(rwFile, "utf-8"));
-  if (rw.nerai && m.ev.nerai) {
+  // 狙い目
+  if (rw.nerai && m.ev && m.ev.nerai) {
     const v = verifyRewrite(m.ev.nerai, rw.nerai);
     if (v.ok) { m.ev.neraiOriginal = m.ev.nerai; m.ev.nerai = rw.nerai; m.ev.rewritten = true; rwOk++; }
-    else { console.warn(`⚠ リライト検証NG(不適用): ${m.name} 欠落数字:${v.missing.join(",")} 捏造数字:${v.added.join(",")}`); rwNg++; }
+    else { console.warn(`⚠ 狙い目リライト検証NG(不適用): ${m.name} 欠落数字:${v.missing.join(",")} 捏造数字:${v.added.join(",")}`); rwNg++; }
+  }
+  // 解析(期待値サイト解析 + 研究所機種情報 の合算リライト)
+  const evSpec = m.ev?.spec || "", labSpec = m.lab?.specHtml || "";
+  if (rw.spec && (evSpec || labSpec)) {
+    const v = verifyRewrite(evSpec + " \n " + labSpec, rw.spec);  // 両ソースの数字の和集合を保持
+    if (v.ok) { m.specCombined = rw.spec; if (m.ev) delete m.ev.spec; if (m.lab) delete m.lab.specHtml; rwSpecOk++; }
+    else { console.warn(`⚠ 解析リライト検証NG(不適用): ${m.name} 欠落:${v.missing.slice(0, 8).join(",")} 捏造:${v.added.slice(0, 8).join(",")}`); rwSpecNg++; }
   }
 }
-console.log(`リライト適用: OK ${rwOk} / 検証NG(原文維持) ${rwNg}`);
+console.log(`狙い目リライト: OK ${rwOk} / NG ${rwNg}`);
+console.log(`解析リライト(合算): OK ${rwSpecOk} / NG ${rwSpecNg}`);
 const index = machines.map((m) => ({
   id: m.id, name: m.name, maker: m.maker, thumb: m.thumb, isNew: m.isNew,
   sources: m.sources, k: [...new Set([norm(m.name), ...m.aliases.map(norm)])].filter(Boolean).join(" "),

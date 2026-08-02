@@ -6,10 +6,10 @@ import { ChevronLeft, ChevronRight, Star, Calculator } from "lucide-react";
 type Col = { id: number; title: string; date: string };
 type Machine = {
   id: string; name: string; aliases: string[]; maker: string; thumb: string; isNew: boolean;
-  hasCalc?: boolean;
+  hasCalc?: boolean; specCombined?: string;
   sources: { ev: boolean; lab: boolean };
-  lab: null | { nerai: number | null; spec: number | null; shukei: number | null; columns: Col[] };
-  ev: null | { slug: string; kdash: string | null; nerai: string; spec: string; neraiOriginal?: string; rewritten?: boolean };
+  lab: null | { specHtml?: string; shukeiHtml?: string; columns: Col[] };
+  ev: null | { slug: string; kdash: string | null; nerai: string; spec?: string; neraiOriginal?: string; rewritten?: boolean };
 };
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
@@ -80,13 +80,23 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
         {tab === "解析・設定" && (
           <>
             <h2 style={{ fontSize: 16, marginBottom: 10 }}>解析・設定判別</h2>
-            {m.ev?.spec ? <Content html={m.ev.spec} /> : m.lab?.spec ? <Pending text="研究所の機種情報・設定判別を統合中（M6）。" /> : <Pending text="解析データは準備中です。" />}
+            {m.specCombined
+              ? <Content html={m.specCombined} />
+              : m.lab?.specHtml
+                ? <Content html={m.lab.specHtml} />
+                : m.ev?.spec
+                  ? <Content html={m.ev.spec} />
+                  : <Pending text="解析データは準備中です。" />}
           </>
         )}
         {tab === "大量集計" && (
           <>
             <h2 style={{ fontSize: 16, marginBottom: 10 }}>大量集計</h2>
-            {m.lab?.shukei || m.ev?.kdash ? <Pending text="ゾーン当選率・サンプル集計を統合中（M6）。" /> : <Pending text="大量集計データはありません。" />}
+            {m.lab?.shukeiHtml
+              ? <Content html={m.lab.shukeiHtml} />
+              : cols.length
+                ? <Pending text="機種別の大量集計データは「コラム」タブの実践・考察記事にまとめています。" />
+                : <Pending text="大量集計データはありません。" />}
           </>
         )}
         {tab === "コラム" && (
