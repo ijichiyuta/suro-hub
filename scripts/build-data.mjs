@@ -43,6 +43,8 @@ const cleanEv = (html) => {
   return h.trim();
 };
 const idOf = (name) => "m" + crypto.createHash("md5").update(name).digest("hex").slice(0, 10);
+const artId = (key) => "a" + crypto.createHash("md5").update(key).digest("hex").slice(0, 10);
+const BASEPATH = "/suro-hub"; // GitHub Pages プロジェクトサイト。注入HTML内リンクは実URLを直書き。
 const postMeta = (id) => { const p = byPost[id]; if (!p) return null; return { id, title: decode((p.title.rendered || "").trim()), date: (p.date || "").slice(0, 10), cats: p.categories || [] }; };
 
 // 研究所投稿HTMLのクリーニング(slolabo gen.mjs cleanを踏襲)。stripCalc=計算ツールDOM/データを除去(別途iframe表示)。
@@ -67,6 +69,55 @@ function cleanLab(html, title, stripCalc) {
   return ($("body").html() || "").replace(/（タップで開閉）/g, "").trim();
 }
 const cleanPost = (pid, stripCalc) => { const p = byPost[pid]; if (!p) return ""; return cleanLab(p.content.rendered, p.title.rendered, stripCalc); };
+
+// ★外部リンク内部化（このサイトで完結／サイト外へ誘導しない）:
+//   ① 参考元/出典 等の“外部誘導セクション”を見出しごと丸ごと除去
+//   ② javascript:void(0)・#・画像lightbox のアンカーはリンク解除（テキスト/画像だけ残す）
+//   ③ 元サイト(suroschool)の機種/記事ページへのリンクは内部URL(/m/・/a/)へ書換
+//   ④ その他すべての外部リンク(3rd party/外部ツール/研究所相互リンク)はリンク解除=テキスト化
+const REF_HEAD = /^(参考元|参考サイト|参考にしたサイト|参考にさせて|引用元|出典|外部リンク|関連リンク|関連記事|おすすめ記事)[:：]?$/;
+const isImgUrl = (u) => /\.(jpe?g|png|gif|webp|svg)(\?|#|$)/i.test(u);
+const linkPathKey = (href) => { // /archives/machine/<name> の <name> を正規化キー化
+  try { const u = new URL(href, "https://suroschool.jp"); return norm(decodeURIComponent(u.pathname.replace(/\/+$/, "").split("/").pop() || "")); } catch { return ""; }
+};
+function internalizeLinks(html, maps) {
+  if (!html) return html;
+  html = html.replace(/<!--[\s\S]*?-->/g, ""); // 非表示コメント(旧ツールメニュー等/中に外部リンク)を除去
+  if (!/<a\b/i.test(html) && !/参考元|参考サイト|引用元|出典|関連リンク|関連記事|<link|<noscript/i.test(html)) return html;
+  const $ = loadHtml(html);
+  // リソース参照(外部CSS/JS等)・noscriptは除去/展開。href/targetは<a>以外に付いても誘導しないため剥がす。
+  $("link, meta, script, style").remove();
+  for (const e of $("noscript").toArray()) $(e).replaceWith($(e).html() || "");
+  for (const e of $("[href]").toArray()) if (e.tagName !== "a") $(e).removeAttr("href");
+  // ① 外部誘導セクション除去（見出し＋次の見出しが来るまでの兄弟）
+  // ※.each()中のDOM変更は兄弟をスキップし得るため、必ず toArray() でスナップショットしてから処理。
+  for (const e of $("h1,h2,h3,h4,h5,h6").toArray()) {
+    const t = $(e).text().replace(/\s+/g, "");
+    if (!REF_HEAD.test(t)) continue;
+    const kill = [e]; let sib = $(e).next();
+    while (sib.length && !/^h[1-6]$/i.test(sib[0].tagName)) { kill.push(sib[0]); sib = sib.next(); }
+    kill.forEach((n) => $(n).remove());
+  }
+  // ②③④ 個別リンク処理
+  for (const e of $("a").toArray()) {
+    const $e = $(e); const href = ($e.attr("href") || "").trim(); const inner = $e.html() || "";
+    if (!href || /^javascript:/i.test(href) || href.startsWith("#")) { $e.replaceWith(inner || $e.text()); continue; }
+    if (isImgUrl(href)) { $e.replaceWith($e.find("img").length ? inner : $e.text()); continue; } // lightbox→画像残す
+    let host = ""; try { host = new URL(href, "https://suroschool.jp").hostname; } catch {}
+    if (/(^|\.)suroschool\.jp$/.test(host)) { // 元サイトの機種/記事 → 内部化
+      const key = linkPathKey(href);
+      const mid = maps.machine.get(key) || maps.machine.get(stripPre(key));
+      const aid = maps.article.get(key);
+      if (mid) { $e.attr("href", BASEPATH + "/m/" + mid + "/").removeAttr("target").removeAttr("rel"); continue; }
+      if (aid) { $e.attr("href", BASEPATH + "/a/" + aid + "/").removeAttr("target").removeAttr("rel"); continue; }
+    }
+    $e.replaceWith(inner || $e.text()); // その他外部 → リンク解除
+  }
+  // 空要素の掃除
+  for (const e of $("ul,ol").toArray()) { if (!$(e).find("li").length) $(e).remove(); }
+  for (const e of $("li,p").toArray()) { const $e = $(e); if (!$e.text().trim() && !$e.find("img,table,br,iframe").length) $e.remove(); }
+  return ($("body").html() || "").trim();
+}
 
 // ★リライト検証(情報不変ゲート): 原文の数字が1つも欠落せず、捏造(原文に無い数字)も無いことを確認。
 // タグ＋HTML実体(&#8211;等)除去→整数ランのみ抽出。原文の「1.3.5.7周期」等のドット区切りを
@@ -178,6 +229,43 @@ for (const m of machines) {
 }
 console.log(`狙い目リライト: OK ${rwOk} / NG ${rwNg}`);
 console.log(`解析リライト(合算): OK ${rwSpecOk} / NG ${rwSpecNg}`);
+
+// ★内部記事レジストリ: 期待値サイトで「機種」化しなかった記事(実践データ/狙い/考察等)を
+//   内部ページ /a/<aid> として復元し、サイト外へ誘導していたリンクの受け皿にする。
+const articles = [];
+const machineKey = new Map(), articleKey = new Map();
+for (const m of machines) {
+  for (const k of [norm(m.name), stripPre(norm(m.name))]) if (k && !machineKey.has(k)) machineKey.set(k, m.id);
+  if (m.ev?.slug) { const nk = norm(m.ev.slug.replace(/^archives_machine_/, "").replace(/__[0-9a-f]+$/, "")); if (nk && !machineKey.has(nk)) machineKey.set(nk, m.id); }
+}
+for (const e of ev) {
+  const name = decode(e.title || "").replace(/🆕|🔥|⭐|★/g, "").trim();
+  if (!name || !artRe.test(name)) continue;               // 記事のみ（機種はスキップ）
+  if (/シミュレーター|シュミレーター|カウントツール|算出ツール/.test(name)) continue; // JSツールは元サイト依存で単独動作せず→内部ページ化しない
+  const body = cleanEv((e.nerai_html || "") + (e.tenjo_html || ""));
+  const kai = cleanEv(e.kaiseki_html || "");
+  const full = [body, kai].filter(Boolean).join("\n");
+  if (full.replace(/<[^>]+>/g, "").trim().length < 40) continue; // 実質空(サブスク紹介等)は作らない
+  const aid = artId(e.url || e.slug || name);
+  articles.push({ aid, title: name, date: (e.date || "").slice(0, 10), kdash: e.kdash_url || null, html: full });
+  for (const k of [norm(name), linkPathKey(e.url || ""), norm((e.slug || "").replace(/^archives_machine_/, "").replace(/__[0-9a-f]+$/, ""))])
+    if (k && !articleKey.has(k)) articleKey.set(k, aid);
+}
+// ★リンク内部化を全表示フィールドへ適用
+const maps = { machine: machineKey, article: articleKey };
+for (const m of machines) {
+  if (m.ev) { m.ev.nerai = internalizeLinks(m.ev.nerai, maps); if (m.ev.neraiOriginal) m.ev.neraiOriginal = internalizeLinks(m.ev.neraiOriginal, maps); if (m.ev.spec) m.ev.spec = internalizeLinks(m.ev.spec, maps); }
+  if (m.lab) { if (m.lab.specHtml) m.lab.specHtml = internalizeLinks(m.lab.specHtml, maps); if (m.lab.shukeiHtml) m.lab.shukeiHtml = internalizeLinks(m.lab.shukeiHtml, maps); }
+  if (m.specCombined) m.specCombined = internalizeLinks(m.specCombined, maps);
+}
+for (const a of articles) a.html = internalizeLinks(a.html, maps);
+// 記事出力
+fs.rmSync(path.join(OUT, "articles"), { recursive: true, force: true });
+fs.mkdirSync(path.join(OUT, "articles"), { recursive: true });
+fs.writeFileSync(path.join(OUT, "articles.json"), JSON.stringify(articles.map((a) => ({ aid: a.aid, title: a.title, date: a.date }))));
+for (const a of articles) fs.writeFileSync(path.join(OUT, "articles", a.aid + ".json"), JSON.stringify(a));
+console.log(`内部記事: ${articles.length}（外部誘導リンクの内部受け皿）`);
+
 const index = machines.map((m) => ({
   id: m.id, name: m.name, maker: m.maker, thumb: m.thumb, isNew: m.isNew,
   sources: m.sources, k: [...new Set([norm(m.name), ...m.aliases.map(norm)])].filter(Boolean).join(" "),
