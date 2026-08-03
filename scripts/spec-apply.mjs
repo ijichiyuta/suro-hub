@@ -64,7 +64,12 @@ function apply(id) {
 
 const ids = process.argv.slice(2);
 if (!ids.length) { console.error("usage: node spec-apply.mjs <id> [id...]"); process.exit(1); }
+let okN = 0, ngN = 0, errN = 0;
 for (const id of ids) {
-  const r = apply(id);
+  let r;
+  try { r = apply(id); }
+  catch (e) { errN++; console.log(`ERR ${id}  ${String(e.message).slice(0, 80)}`); continue; }
+  if (r.ok) okN++; else ngN++;
   console.log(`${r.ok ? "OK " : "NG "} ${r.name || id}  変更${r.changed || 0}/戻し${r.reverted || 0}/据置${r.kept || 0} (計${r.blocks || 0})  欠落${r.missing ?? "?"} 捏造${r.added ?? "?"}${r.missingList && r.missingList.length ? " 欠落例:" + r.missingList.join(",") : ""}${r.reason ? " " + r.reason : ""}`);
 }
+console.log(`\n==== apply集計: OK ${okN} / NG ${ngN} / ERR ${errN} ====`);
