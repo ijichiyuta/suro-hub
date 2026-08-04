@@ -3,6 +3,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Star, Calculator } from "lucide-react";
 import { useFav } from "@/lib/favorites";
+import { pushRecent } from "@/lib/recent";
+import { useNote, setNote } from "@/lib/notes";
 
 type Col = { id: number; title: string; date: string };
 type Machine = {
@@ -30,6 +32,11 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("狙い目");
   const [calc, setCalc] = useState(false);
   const { fav, toggle } = useFav(m.id);
+  useEffect(() => { pushRecent(m.id); }, [m.id]);
+  const savedNote = useNote(m.id);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [noteFocus, setNoteFocus] = useState(false);
+  useEffect(() => { if (!noteFocus) setNoteDraft(savedNote); }, [savedNote, noteFocus]);
   // 解析/集計HTMLは重いので遅延取得（狙い目タブは即表示のまま＝店内高速表示）
   const [specData, setSpecData] = useState<{ spec: string; shukei: string; error?: boolean } | null>(null);
   const [specLoading, setSpecLoading] = useState(false);
@@ -72,6 +79,15 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
       </header>
 
       <main className="pad" style={{ paddingTop: 15 }}>
+        <textarea
+          value={noteDraft}
+          onChange={(e) => setNoteDraft(e.target.value)}
+          onFocus={() => setNoteFocus(true)}
+          onBlur={() => { setNoteFocus(false); setNote(m.id, noteDraft); }}
+          placeholder="＋ 自分メモ（設定示唆・立ち回り・ホール状況など）"
+          rows={noteDraft ? 3 : 1}
+          style={{ width: "100%", resize: "vertical", border: "1px solid var(--border)", borderRadius: 6, padding: "9px 12px", fontSize: 13.5, fontFamily: "inherit", color: "var(--ink)", background: "var(--bg-soft)", outline: "none", lineHeight: 1.6, marginBottom: 15 }}
+        />
         {tab === "狙い目" && (
           <>
             <h2 style={{ fontSize: 16, marginBottom: 10 }}>狙い目・期待値</h2>

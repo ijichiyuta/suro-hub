@@ -5,6 +5,7 @@ import { Search, Star } from "lucide-react";
 import INDEX from "@/data/index.json";
 import AccountButton from "@/app/components/AccountButton";
 import { useFavIds, toggleFav } from "@/lib/favorites";
+import { useRecent } from "@/lib/recent";
 
 type M = { id: string; name: string; maker: string; thumb: string; isNew: boolean; sources: { ev: boolean; lab: boolean }; k: string };
 const ALL = INDEX as M[];
@@ -16,17 +17,26 @@ const FILTERS = ["すべて", "新台", "保存", "メーカー"];
 export default function Home() {
   const [q, setQ] = useState("");
   const [f, setF] = useState("すべて");
+  const [maker, setMaker] = useState("");
   const favIds = useFavIds();
   const favSet = useMemo(() => new Set(favIds), [favIds]);
+  const byId = useMemo(() => new Map(ALL.map((m) => [m.id, m])), []);
+  const makers = useMemo(() => [...new Set(ALL.map((m) => m.maker).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ja")), []);
+  const recentIds = useRecent();
+  const recent = useMemo(() => recentIds.map((id) => byId.get(id)).filter(Boolean).slice(0, 12) as M[], [recentIds, byId]);
+
   const list = useMemo(() => {
     const nq = norm(q);
     return ALL.filter((m) => {
       if (nq && !(m.k.includes(nq) || norm(m.name).includes(nq))) return false;
       if (f === "新台" && !m.isNew) return false;
       if (f === "保存" && !favSet.has(m.id)) return false;
+      if (f === "メーカー" && maker && m.maker !== maker) return false;
       return true;
     });
-  }, [q, f, favSet]);
+  }, [q, f, favSet, maker]);
+
+  const showRecent = !q && f === "すべて" && recent.length > 0;
 
   return (
     <>
@@ -40,9 +50,34 @@ export default function Home() {
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="機種名・読みで検索（例: グール / 北斗）" />
         </label>
         <div className="chips" style={{ marginTop: 11 }}>
-          {FILTERS.map((x) => (<button key={x} className={"chip" + (f === x ? " on" : "")} onClick={() => setF(x)}>{x}</button>))}
+          {FILTERS.map((x) => (<button key={x} className={"chip" + (f === x ? " on" : "")} onClick={() => { setF(x); if (x !== "メーカー") setMaker(""); }}>{x}</button>))}
         </div>
+        {f === "メーカー" && (
+          <div className="chips" style={{ marginTop: 8, overflowX: "auto", flexWrap: "nowrap", paddingBottom: 2 }}>
+            <button className={"chip" + (maker === "" ? " on" : "")} onClick={() => setMaker("")} style={{ flex: "none" }}>すべて</button>
+            {makers.map((mk) => (
+              <button key={mk} className={"chip" + (maker === mk ? " on" : "")} onClick={() => setMaker(mk)} style={{ flex: "none" }}>{mk}</button>
+            ))}
+          </div>
+        )}
       </header>
+
+      {showRecent && (
+        <div style={{ padding: "12px 0 2px" }}>
+          <div className="pad" style={{ fontSize: 12.5, fontWeight: 700, color: "var(--sub)", marginBottom: 8 }}>最近見た機種</div>
+          <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "0 16px 4px" }}>
+            {recent.map((m) => (
+              <Link key={m.id} href={`/m/${m.id}`} style={{ flex: "none", width: 66, textAlign: "center" }}>
+                {m.thumb
+                  ? // eslint-disable-next-line @next/next/no-img-element
+                    <img src={m.thumb} alt="" loading="lazy" style={{ width: 66, height: 66, borderRadius: 8, objectFit: "cover", border: "1px solid var(--border)" }} />
+                  : <span style={{ display: "flex", width: 66, height: 66, borderRadius: 8, background: "var(--bg-soft)", border: "1px solid var(--border)", alignItems: "center", justifyContent: "center" }}>🎰</span>}
+                <span style={{ display: "block", fontSize: 10.5, color: "var(--sub)", marginTop: 4, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="pad" style={{ color: "var(--sub)", fontSize: 12.5, margin: "10px 0 0", fontWeight: 700 }}>{list.length}機種</div>
 
