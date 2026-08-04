@@ -150,6 +150,7 @@ for (const m of lab) {
     id, name: m.name, aliases: di ? di.aliases : [], maker: di ? di.maker : "",
     thumb: !badThumb(m.thumb) ? m.thumb : (di && !badThumb(di.th) ? di.th : ""),
     isNew: !!m.isNew, sources: { lab: true, ev: false },
+    pop: m.count || 0, // 人気度=研究所の記事件数(実践/考察/設定判別 等の掲載数)。多い=よく打たれる注目機種。
     lab: { specHtml: cleanPost(m.sections?.spec, false), shukeiHtml: cleanPost(m.sections?.shukei, false), columns: cols },
     ev: null,
     _norm: [norm(m.name), stripPre(norm(m.name))],
@@ -184,6 +185,7 @@ for (const e of ev) {
     unified.set(id, {
       id, name, aliases: di ? di.aliases : [], maker: di ? di.maker : "",
       thumb: !badThumb(e.thumb) ? e.thumb : "", isNew: /🆕/.test(e.title || ""),
+      pop: 0, // 期待値のみ機種は研究所記事件数が無い→0(新台ブーストは並び順で加味)
       sources: { lab: false, ev: true }, lab: null, ev: evData, _norm: [n, s],
     });
     added++;
@@ -191,7 +193,10 @@ for (const e of ev) {
 }
 
 // 出力
-const machines = [...unified.values()].sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0) || a.name.localeCompare(b.name, "ja"));
+// ★初期並び=人気順。人気度スコア=研究所記事件数(pop)＋新台ボーナス(現行ホールで打たれる=注目)。
+//   例: 北斗転生2(28)/東京喰種(23)/からくりサーカス(23)…が上位。新台は+6で埋もれず表示。
+const popScore = (m) => (m.pop || 0) + (m.isNew ? 6 : 0);
+const machines = [...unified.values()].sort((a, b) => popScore(b) - popScore(a) || (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0) || a.name.localeCompare(b.name, "ja"));
 
 // ★重複検知(非破壊): 正規化キー(stripPre(norm(name)))が衝突する＝同一機種が2件に割れている可能性。
 //   月次更新でev/labの名称ゆらぎにより再発しうるため、ビルド毎に警告を出す。data/dedup-keep-separate.json
@@ -217,7 +222,7 @@ for (const m of machines) {
   const rw = JSON.parse(fs.readFileSync(rwFile, "utf-8"));
   if (rw.nerai && m.ev && m.ev.nerai) {
     const v = verifyRewrite(m.ev.nerai, rw.nerai);
-    if (v.ok) { m.ev.neraiOriginal = m.ev.nerai; m.ev.nerai = rw.nerai; m.ev.rewritten = true; rwOk++; }
+    if (v.ok) { m.ev.nerai = rw.nerai; rwOk++; }   // 原文表示機能は廃止したため neraiOriginal は保持しない
     else { console.warn(`⚠ 狙い目リライト検証NG(不適用): ${m.name} 欠落数字:${v.missing.join(",")} 捏造数字:${v.added.join(",")}`); rwNg++; }
   }
 }
@@ -247,7 +252,7 @@ for (const e of ev) {
 // ★リンク内部化を全表示フィールドへ適用
 const maps = { machine: machineKey, article: articleKey };
 for (const m of machines) {
-  if (m.ev) { m.ev.nerai = internalizeLinks(m.ev.nerai, maps); if (m.ev.neraiOriginal) m.ev.neraiOriginal = internalizeLinks(m.ev.neraiOriginal, maps); if (m.ev.spec) m.ev.spec = internalizeLinks(m.ev.spec, maps); }
+  if (m.ev) { m.ev.nerai = internalizeLinks(m.ev.nerai, maps); if (m.ev.spec) m.ev.spec = internalizeLinks(m.ev.spec, maps); }
   if (m.lab) { if (m.lab.specHtml) m.lab.specHtml = internalizeLinks(m.lab.specHtml, maps); if (m.lab.shukeiHtml) m.lab.shukeiHtml = internalizeLinks(m.lab.shukeiHtml, maps); }
   if (m.specCombined) m.specCombined = internalizeLinks(m.specCombined, maps);
 }
@@ -277,7 +282,7 @@ for (const a of articles) fs.writeFileSync(path.join(OUT, "articles", a.aid + ".
 console.log(`内部記事: ${articles.length}（外部誘導リンクの内部受け皿）`);
 
 const index = machines.map((m) => ({
-  id: m.id, name: m.name, maker: m.maker, thumb: m.thumb, isNew: m.isNew,
+  id: m.id, name: m.name, maker: m.maker, thumb: m.thumb, isNew: m.isNew, pop: m.pop || 0,
   sources: m.sources, k: [...new Set([norm(m.name), ...m.aliases.map(norm)])].filter(Boolean).join(" "),
 }));
 fs.writeFileSync(path.join(OUT, "index.json"), JSON.stringify(index));
