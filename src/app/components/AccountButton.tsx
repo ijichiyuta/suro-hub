@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { LogOut } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { syncFavorites } from "@/lib/favorites";
 
 // ログイン中のみ表示するアカウント/ログアウト。variant で見た目を切替。
 export default function AccountButton({ variant = "sidebar" }: { variant?: "sidebar" | "icon" }) {
@@ -9,8 +10,11 @@ export default function AccountButton({ variant = "sidebar" }: { variant?: "side
 
   useEffect(() => {
     if (!supabase) return;
-    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setEmail(s?.user?.email ?? null));
+    supabase.auth.getUser().then(({ data }) => { if (data.user) { setEmail(data.user.email ?? null); void syncFavorites(); } });
+    const { data: sub } = supabase.auth.onAuthStateChange((e, s) => {
+      setEmail(s?.user?.email ?? null);
+      if (e === "SIGNED_IN") void syncFavorites();  // ログイン時にお気に入りをアカウントと統合同期
+    });
     return () => sub.subscription.unsubscribe();
   }, []);
 

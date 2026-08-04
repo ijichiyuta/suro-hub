@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Star, Calculator } from "lucide-react";
+import { useFav } from "@/lib/favorites";
 
 type Col = { id: number; title: string; date: string };
 type Machine = {
@@ -28,6 +29,7 @@ function Loading() {
 export default function MachineView({ machine: m }: { machine: Machine }) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("狙い目");
   const [calc, setCalc] = useState(false);
+  const { fav, toggle } = useFav(m.id);
   // 解析/集計HTMLは重いので遅延取得（狙い目タブは即表示のまま＝店内高速表示）
   const [specData, setSpecData] = useState<{ spec: string; shukei: string; error?: boolean } | null>(null);
   const [specLoading, setSpecLoading] = useState(false);
@@ -60,7 +62,9 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
               {m.maker && <span style={{ color: "var(--light)", fontSize: 12 }}>{m.maker}</span>}
             </span>
           </span>
-          <button style={{ background: "none", border: "none", color: "var(--light)", display: "flex" }}><Star size={22} /></button>
+          <button onClick={toggle} aria-label={fav ? "保存を解除" : "保存する"} style={{ background: "none", border: "none", color: fav ? "var(--blue)" : "var(--light)", display: "flex" }}>
+            <Star size={22} fill={fav ? "var(--blue)" : "none"} />
+          </button>
         </div>
         <div className="pad tabs">
           {TABS.map((t) => (<button key={t} className={"tab" + (tab === t ? " on" : "")} onClick={() => setTab(t)}>{t}</button>))}

@@ -1,9 +1,10 @@
 "use client";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Search, ChevronRight } from "lucide-react";
+import { Search, Star } from "lucide-react";
 import INDEX from "@/data/index.json";
 import AccountButton from "@/app/components/AccountButton";
+import { useFavIds, toggleFav } from "@/lib/favorites";
 
 type M = { id: string; name: string; maker: string; thumb: string; isNew: boolean; sources: { ev: boolean; lab: boolean }; k: string };
 const ALL = INDEX as M[];
@@ -15,14 +16,17 @@ const FILTERS = ["すべて", "新台", "保存", "メーカー"];
 export default function Home() {
   const [q, setQ] = useState("");
   const [f, setF] = useState("すべて");
+  const favIds = useFavIds();
+  const favSet = useMemo(() => new Set(favIds), [favIds]);
   const list = useMemo(() => {
     const nq = norm(q);
     return ALL.filter((m) => {
       if (nq && !(m.k.includes(nq) || norm(m.name).includes(nq))) return false;
       if (f === "新台" && !m.isNew) return false;
+      if (f === "保存" && !favSet.has(m.id)) return false;
       return true;
     });
-  }, [q, f]);
+  }, [q, f, favSet]);
 
   return (
     <>
@@ -54,10 +58,15 @@ export default function Home() {
               <span style={{ display: "block", fontWeight: 700, fontSize: 15, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</span>
               {m.maker && <span style={{ display: "block", color: "var(--light)", fontSize: 12 }}>{m.maker}</span>}
             </span>
-            <ChevronRight className="chev" size={18} />
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFav(m.id); }}
+              aria-label={favSet.has(m.id) ? "保存を解除" : "保存する"}
+              style={{ background: "none", border: "none", padding: 4, display: "flex", color: favSet.has(m.id) ? "var(--blue)" : "var(--light)" }}>
+              <Star size={19} fill={favSet.has(m.id) ? "var(--blue)" : "none"} />
+            </button>
           </Link>
         ))}
-        {list.length === 0 && <p style={{ color: "var(--sub)", padding: 24, textAlign: "center" }}>該当なし</p>}
+        {list.length === 0 && f === "保存" && <p style={{ color: "var(--sub)", padding: 40, textAlign: "center", fontSize: 13.5 }}>保存した機種はまだありません。<br />★をタップで追加できます。</p>}
+        {list.length === 0 && f !== "保存" && <p style={{ color: "var(--sub)", padding: 24, textAlign: "center" }}>該当なし</p>}
         {list.length > 400 && <p style={{ color: "var(--light)", fontSize: 12, textAlign: "center", padding: 16 }}>上位400件を表示（検索で絞れます）</p>}
       </div>
     </>
