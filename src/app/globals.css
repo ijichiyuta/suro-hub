@@ -35,6 +35,22 @@ button { font-family: inherit; cursor: pointer; }
 /* 英字ラベル(セクション見出し等) */
 .eyebrow { font-family: var(--font-inter), sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--light); }
 
+/* PINゲート */
+.pin-key {
+  height: 70px; border-radius: 8px; border: 1px solid var(--border); background: #fff;
+  font-size: 24px; font-weight: 600; color: var(--ink); display: flex; align-items: center; justify-content: center;
+  transition: background .12s var(--ease);
+}
+.pin-key:active { background: var(--bg-soft); }
+.pin-shake { animation: pin-shake .42s var(--ease); }
+@keyframes pin-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-9px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(4px); }
+}
+
 /* アプリ枠 */
 .app {
   max-width: 520px; margin: 0 auto; background: var(--bg);

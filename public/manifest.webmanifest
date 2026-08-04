@@ -1,0 +1,13 @@
+{
+  "name": "スマスマ期待値ラボ",
+  "short_name": "期待値ラボ",
+  "start_url": "/suro-hub/",
+  "scope": "/suro-hub/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#1f5eff",
+  "icons": [
+    { "src": "/suro-hub/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
