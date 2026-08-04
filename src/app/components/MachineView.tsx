@@ -11,10 +11,11 @@ import { PaywallCard, TeaserGate } from "./Paywall";
 type Col = { id: number; title: string; date: string };
 type Machine = {
   id: string; name: string; aliases: string[]; maker: string; thumb: string; isNew: boolean;
-  hasCalc?: boolean; hasSpec?: boolean; hasShukei?: boolean;
+  hasCalc?: boolean; hasSpec?: boolean; hasShukei?: boolean; hasFullNerai?: boolean;
+  neraiTeaser?: string; neraiSource?: string;
   sources: { ev: boolean; lab: boolean };
   lab: null | { columns: Col[] };
-  ev: null | { slug: string; kdash: string | null; nerai: string };
+  ev: null | { slug: string; kdash: string | null };
 };
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
@@ -40,20 +41,20 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
   const [noteDraft, setNoteDraft] = useState("");
   const [noteFocus, setNoteFocus] = useState(false);
   useEffect(() => { if (!noteFocus) setNoteDraft(savedNote); }, [savedNote, noteFocus]);
-  // 解析/集計HTMLは重いので遅延取得（狙い目タブは即表示のまま＝店内高速表示）
-  const [specData, setSpecData] = useState<{ spec: string; shukei: string; error?: boolean } | null>(null);
+  // 狙い目全文・解析・集計は重いので遅延取得。無料会員はプレビュー(teaser)のみで取得しない=会員限定。
+  //   プレミアムは機種を開いた時点でまとめて取得(狙い目=既定タブを速く出すため)。
+  const [specData, setSpecData] = useState<{ nerai?: string; spec: string; shukei: string; error?: boolean } | null>(null);
   const [specLoading, setSpecLoading] = useState(false);
-  const needSpec = (tab === "解析・設定" || tab === "大量集計") && premium; // 無料会員は取得しない(会員限定)
+  const needData = premium && (m.hasFullNerai || m.hasSpec || m.hasShukei);
   useEffect(() => {
-    if (!needSpec || specData || specLoading) return;
-    if (!m.hasSpec && !m.hasShukei) return;
+    if (!needData || specData || specLoading) return;
     setSpecLoading(true);
     fetch(`${BASE}/data/spec/${m.id}.json`)
       .then((r) => r.json())
       .then((d) => setSpecData(d))
       .catch(() => setSpecData({ spec: "", shukei: "", error: true }))
       .finally(() => setSpecLoading(false));
-  }, [needSpec, specData, specLoading, m.id, m.hasSpec, m.hasShukei]);
+  }, [needData, specData, specLoading, m.id]);
 
   const cols = m.lab?.columns || [];
   return (
@@ -95,11 +96,11 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
         {tab === "狙い目" && (
           <>
             <h2 style={{ fontSize: 16, marginBottom: 10 }}>狙い目・期待値</h2>
-            {!m.ev?.nerai ? (
+            {!m.hasFullNerai ? (
               <Pending text="この機種の狙い目データは準備中です。" />
             ) : premium ? (
               <>
-                <Content html={m.ev.nerai} />
+                {specData?.nerai ? <Content html={specData.nerai} /> : <><Content html={m.neraiTeaser || ""} /><Loading /></>}
                 {m.hasCalc && (calc ? (
                   <div style={{ marginTop: 16 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
@@ -113,7 +114,7 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
                 ))}
               </>
             ) : (
-              <TeaserGate loading={subLoading}><Content html={m.ev.nerai} /></TeaserGate>
+              <TeaserGate loading={subLoading}><Content html={m.neraiTeaser || ""} /></TeaserGate>
             )}
           </>
         )}

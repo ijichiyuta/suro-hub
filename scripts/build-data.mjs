@@ -152,6 +152,7 @@ for (const m of lab) {
     thumb: !badThumb(m.thumb) ? m.thumb : (di && !badThumb(di.th) ? di.th : ""),
     isNew: !!m.isNew, sources: { lab: true, ev: false },
     pop: m.count || 0, // 人気度=研究所の記事件数(実践/考察/設定判別 等の掲載数)。多い=よく打たれる注目機種。
+    _labNerai: cleanPost(m.sections?.nerai, true), // 研究所の狙い目本文(計算ツールDOMは除去=iframe別表示)。ev無しの狙い目補完に使う。
     lab: { specHtml: cleanPost(m.sections?.spec, false), shukeiHtml: cleanPost(m.sections?.shukei, false), columns: cols },
     ev: null,
     _norm: [norm(m.name), stripPre(norm(m.name))],
@@ -213,21 +214,11 @@ if (dupGroups.length) {
   for (const [k, v] of dupGroups) console.warn(`   [${k}] ${v.map((m) => m.name + "(" + (m.sources.ev && m.sources.lab ? "両" : m.sources.ev ? "期" : "研") + ")").join(" ／ ")}`);
 } else console.log("重複チェック: OK（同一正規化キーの重複なし）");
 
-// ★狙い目リライト適用（data/rewrites/<id>.json の nerai）＋情報不変ゲート。検証NGは原文維持。
-//   ※解析(spec)リライトは「リンク内部化の後」に適用する（rw.spec は内部化済み本文を基に生成しており、
-//     ゲートの基準も内部化済みの spec に揃える必要があるため。下部の内部化パス後で処理）。
+// ★狙い目/解析リライトは「リンク内部化の後」にソース非依存で適用する（下部の内部化パス内）。
+//   ev(期待値サイト)/lab(研究所) どちらの生狙い目でも、data/rewrites/<id>.json の nerai を
+//   情報不変ゲート(数字欠落0/捏造0)で検証して適用。将来ev更新で原文が変われば旧リライトはゲート落ち
+//   →自動で原文にフォールバック＋要再リライトとして nerai-raw に出力（同一パイプラインで再生成可能）。
 let rwOk = 0, rwNg = 0, rwSpecOk = 0, rwSpecNg = 0;
-for (const m of machines) {
-  const rwFile = path.join(REWRITES, m.id + ".json");
-  if (!fs.existsSync(rwFile)) continue;
-  const rw = JSON.parse(fs.readFileSync(rwFile, "utf-8"));
-  if (rw.nerai && m.ev && m.ev.nerai) {
-    const v = verifyRewrite(m.ev.nerai, rw.nerai);
-    if (v.ok) { m.ev.nerai = rw.nerai; rwOk++; }   // 原文表示機能は廃止したため neraiOriginal は保持しない
-    else { console.warn(`⚠ 狙い目リライト検証NG(不適用): ${m.name} 欠落数字:${v.missing.join(",")} 捏造数字:${v.added.join(",")}`); rwNg++; }
-  }
-}
-console.log(`狙い目リライト: OK ${rwOk} / NG ${rwNg}`);
 
 // ★内部記事レジストリ: 期待値サイトで「機種」化しなかった記事(実践データ/狙い/考察等)を
 //   内部ページ /a/<aid> として復元し、サイト外へ誘導していたリンクの受け皿にする。
@@ -253,10 +244,28 @@ for (const e of ev) {
 // ★リンク内部化を全表示フィールドへ適用
 const maps = { machine: machineKey, article: articleKey };
 for (const m of machines) {
-  if (m.ev) { m.ev.nerai = internalizeLinks(m.ev.nerai, maps); if (m.ev.spec) m.ev.spec = internalizeLinks(m.ev.spec, maps); }
+  // ★狙い目の生原文を確定: 期待値サイト優先、無ければ研究所の狙い目本文で補完（ソース非依存）。
+  const neraiRaw = (m.ev && m.ev.nerai) ? m.ev.nerai : (m._labNerai || "");
+  m._neraiRaw = neraiRaw;                                       // nerai-raw 出力用(リライトパイプラインの素材)
+  m.neraiSource = (m.ev && m.ev.nerai) ? "ev" : (m._labNerai ? "lab" : "");
+  // 狙い目リライト適用(検証NG/未リライトは原文維持)。ev/lab どちらの原文にも同じロジック。
+  let nerai = neraiRaw, neraiRewritten = false;
+  const rwFile = path.join(REWRITES, m.id + ".json");
+  if (neraiRaw && fs.existsSync(rwFile)) {
+    const rw = JSON.parse(fs.readFileSync(rwFile, "utf-8"));
+    if (rw.nerai) {
+      const v = verifyRewrite(neraiRaw, rw.nerai);
+      if (v.ok) { nerai = rw.nerai; neraiRewritten = true; rwOk++; }
+      else { rwNg++; }
+    }
+  }
+  m.neraiRewritten = neraiRewritten;
+  m.nerai = nerai ? internalizeLinks(nerai, maps) : "";
+  if (m.ev?.spec) m.ev.spec = internalizeLinks(m.ev.spec, maps);
   if (m.lab) { if (m.lab.specHtml) m.lab.specHtml = internalizeLinks(m.lab.specHtml, maps); if (m.lab.shukeiHtml) m.lab.shukeiHtml = internalizeLinks(m.lab.shukeiHtml, maps); }
   if (m.specCombined) m.specCombined = internalizeLinks(m.specCombined, maps);
 }
+console.log(`狙い目リライト: OK ${rwOk} / NG ${rwNg}（ソース非依存・ev+lab）`);
 for (const a of articles) a.html = internalizeLinks(a.html, maps);
 
 // ★解析(spec)リライト適用（内部化後）＋情報不変ゲート。rw.spec は表・画像を無改変のまま説明文だけ
@@ -291,6 +300,21 @@ fs.writeFileSync(path.join(OUT, "index.json"), JSON.stringify(index));
 // ★店内高速表示: 重い解析/集計HTML(全体の77%)を機種JSONから分離し、public/data/spec/<id>.json へ。
 //   狙い目タブ(実戦で必要な軽量コンテンツ)は機種JSONにインライン維持＝ページは即表示。
 //   解析/集計タブを開いたときだけ MachineView が spec ファイルを取得する(遅延読み込み)。
+// 狙い目の冒頭プレビュー(無料会員の一部表示＋即時表示用)。確実に小さく＝本文テキストの先頭のみ抜粋。
+//   見出しがあれば併記。全文はプレミアムが遅延取得(spec同梱)する。
+function teaserOf(html) {
+  if (!html) return "";
+  const $ = loadHtml(html);
+  const head = ($("h1,h2,h3").first().text() || "").replace(/\s+/g, " ").trim();
+  const body = $("body").text().replace(/\s+/g, " ").trim();
+  if (!body) return "";
+  const lead = body.slice(0, 240);
+  const parts = [];
+  if (head && head.length <= 40 && !lead.startsWith(head)) parts.push(`<h3>${head}</h3>`);
+  parts.push(`<p>${lead}${body.length > 240 ? "…" : ""}</p>`);
+  return parts.join("");
+}
+
 const SPECOUT = path.join(ROOT, "public", "data", "spec");
 fs.rmSync(SPECOUT, { recursive: true, force: true });
 fs.mkdirSync(SPECOUT, { recursive: true });
@@ -299,25 +323,38 @@ fs.mkdirSync(SPECOUT, { recursive: true });
 const SPECRAW = path.join(ROOT, "data", "spec-raw");
 fs.rmSync(SPECRAW, { recursive: true, force: true });
 fs.mkdirSync(SPECRAW, { recursive: true });
-let splitBytes = 0, splitCount = 0;
+// 狙い目リライトのパイプライン素材(内部化前の生狙い目・ev/lab解決済)。未リライトの機種のみ出力。
+const NERAIRAW = path.join(ROOT, "data", "nerai-raw");
+fs.rmSync(NERAIRAW, { recursive: true, force: true });
+fs.mkdirSync(NERAIRAW, { recursive: true });
+let splitBytes = 0, splitCount = 0, neraiRawN = 0;
 for (const m of machines) {
-  if (!m.specCombined && (m.ev?.spec || m.lab?.specHtml)) // 未リライト機種の素材をパイプライン用に保存
+  if (!m.specCombined && (m.ev?.spec || m.lab?.specHtml)) // 未リライト機種の解析素材をパイプライン用に保存
     fs.writeFileSync(path.join(SPECRAW, m.id + ".json"), JSON.stringify({ name: m.name, ev: m.ev?.spec || "", lab: m.lab?.specHtml || "" }));
+  if (m._neraiRaw && !m.neraiRewritten) { // 未リライト(or ゲート落ち)の狙い目をパイプライン用に保存
+    fs.writeFileSync(path.join(NERAIRAW, m.id + ".json"), JSON.stringify({ name: m.name, source: m.neraiSource, nerai: m._neraiRaw })); neraiRawN++;
+  }
   const specHtml = m.specCombined || m.lab?.specHtml || m.ev?.spec || ""; // 解析タブの表示優先順を確定
   const shukeiHtml = m.lab?.shukeiHtml || "";                              // 大量集計タブ
-  if (specHtml || shukeiHtml) {
-    const payload = JSON.stringify({ spec: specHtml, shukei: shukeiHtml });
+  // ★狙い目の表示ゲート: リライト済(情報不変ゲート通過)のみ表示。ev/lab問わず未リライトの原文コピーは
+  //   表示しない=リライト完了まで「準備中」に留める(本人方針:元と同一文章NG)。ev更新で原文が変わり
+  //   旧リライトがゲート落ちした機種も自動でここに入り、再リライトまで準備中となる。
+  const neraiFull = m.neraiRewritten ? m.nerai : "";
+  if (specHtml || shukeiHtml || neraiFull) {                             // 遅延読込ファイル(狙い目/解析/集計を同梱)
+    const payload = JSON.stringify({ nerai: neraiFull, spec: specHtml, shukei: shukeiHtml });
     fs.writeFileSync(path.join(SPECOUT, m.id + ".json"), payload);
     splitBytes += payload.length; splitCount++;
   }
-  m.hasSpec = !!specHtml; m.hasShukei = !!shukeiHtml;
-  // 機種JSONから重いフィールドを除去(遅延取得へ)
-  const { _norm, specCombined, ...rest } = m;
-  if (rest.ev) { const { spec, ...evLight } = rest.ev; rest.ev = evLight; }
+  m.hasSpec = !!specHtml; m.hasShukei = !!shukeiHtml; m.hasFullNerai = !!neraiFull;
+  m.neraiTeaser = teaserOf(neraiFull); // 冒頭プレビュー(無料会員の一部表示＋即時表示用・インライン)
+  // 機種JSONから重いフィールド(狙い目全文/解析/集計)を除去(遅延取得へ)。teaserのみインライン維持。
+  const { _norm, _labNerai, _neraiRaw, nerai, specCombined, ...rest } = m;
+  if (rest.ev) { const { spec, nerai: _en, ...evLight } = rest.ev; rest.ev = evLight; }
   if (rest.lab) { const { specHtml: _s, shukeiHtml: _k, ...labLight } = rest.lab; rest.lab = labLight; }
   fs.writeFileSync(path.join(OUT, "machines", m.id + ".json"), JSON.stringify(rest));
 }
-console.log(`解析/集計を分離(遅延読込): ${splitCount}機種 / ${(splitBytes / 1e6).toFixed(1)}MB → public/data/spec/`);
+console.log(`狙い目/解析/集計を分離(遅延読込): ${splitCount}機種 / ${(splitBytes / 1e6).toFixed(1)}MB → public/data/spec/`);
+console.log(`狙い目リライト待ち(nerai-raw): ${neraiRawN}機種`);
 
 console.log(`統合機種: ${machines.length}（両方:${machines.filter(m => m.sources.ev && m.sources.lab).length} / 研究所のみ:${machines.filter(m => m.sources.lab && !m.sources.ev).length} / 期待値のみ:${machines.filter(m => m.sources.ev && !m.sources.lab).length}）`);
 console.log(`期待値マッチ:${matched} / 新規追加:${added} / 記事ツール除外:${skipped}`);

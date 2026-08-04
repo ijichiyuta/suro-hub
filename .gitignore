@@ -43,3 +43,5 @@ next-env.d.ts
 # 解析リライト作業用の中間生成物(コミット不要)
 data/spec-work/
 data/spec-raw/
+data/nerai-raw/
+data/nerai-work/
