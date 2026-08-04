@@ -5,6 +5,8 @@ import { ChevronLeft, ChevronRight, Star, Calculator } from "lucide-react";
 import { useFav } from "@/lib/favorites";
 import { pushRecent } from "@/lib/recent";
 import { useNote, setNote } from "@/lib/notes";
+import { useSubscription } from "@/lib/subscription";
+import { PaywallCard, TeaserGate } from "./Paywall";
 
 type Col = { id: number; title: string; date: string };
 type Machine = {
@@ -32,6 +34,7 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("狙い目");
   const [calc, setCalc] = useState(false);
   const { fav, toggle } = useFav(m.id);
+  const { premium } = useSubscription();  // free=一部プレビュー / premium=全表示
   useEffect(() => { pushRecent(m.id); }, [m.id]);
   const savedNote = useNote(m.id);
   const [noteDraft, setNoteDraft] = useState("");
@@ -40,7 +43,7 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
   // 解析/集計HTMLは重いので遅延取得（狙い目タブは即表示のまま＝店内高速表示）
   const [specData, setSpecData] = useState<{ spec: string; shukei: string; error?: boolean } | null>(null);
   const [specLoading, setSpecLoading] = useState(false);
-  const needSpec = tab === "解析・設定" || tab === "大量集計";
+  const needSpec = (tab === "解析・設定" || tab === "大量集計") && premium; // 無料会員は取得しない(会員限定)
   useEffect(() => {
     if (!needSpec || specData || specLoading) return;
     if (!m.hasSpec && !m.hasShukei) return;
@@ -91,38 +94,45 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
         {tab === "狙い目" && (
           <>
             <h2 style={{ fontSize: 16, marginBottom: 10 }}>狙い目・期待値</h2>
-            {m.ev?.nerai && <Content html={m.ev.nerai} />}
-            {m.hasCalc ? (
-              calc ? (
-                <div style={{ marginTop: 16 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                    <h3 style={{ fontSize: 15 }}>期待値計算ツール</h3>
-                    <button onClick={() => setCalc(false)} style={{ background: "none", border: "none", color: "var(--sub)", fontWeight: 700, fontSize: 13 }}>閉じる</button>
+            {!m.ev?.nerai ? (
+              <Pending text="この機種の狙い目データは準備中です。" />
+            ) : premium ? (
+              <>
+                <Content html={m.ev.nerai} />
+                {m.hasCalc && (calc ? (
+                  <div style={{ marginTop: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                      <h3 style={{ fontSize: 15 }}>期待値計算ツール</h3>
+                      <button onClick={() => setCalc(false)} style={{ background: "none", border: "none", color: "var(--sub)", fontWeight: 700, fontSize: 13 }}>閉じる</button>
+                    </div>
+                    <iframe src={`${BASE}/calc/${m.id}.html`} title="期待値計算ツール" style={{ width: "100%", height: "78vh", border: "1px solid var(--border)", borderRadius: 6, background: "#fff" }} />
                   </div>
-                  <iframe src={`${BASE}/calc/${m.id}.html`} title="期待値計算ツール" style={{ width: "100%", height: "78vh", border: "1px solid var(--border)", borderRadius: 6, background: "#fff" }} />
-                </div>
-              ) : (
-                <button className="btn" style={{ marginTop: 16 }} onClick={() => setCalc(true)}><Calculator size={18} /> 期待値を計算する</button>
-              )
-            ) : (!m.ev?.nerai && <Pending text="この機種の狙い目データは準備中です。" />)}
+                ) : (
+                  <button className="btn" style={{ marginTop: 16 }} onClick={() => setCalc(true)}><Calculator size={18} /> 期待値を計算する</button>
+                ))}
+              </>
+            ) : (
+              <TeaserGate><Content html={m.ev.nerai} /></TeaserGate>
+            )}
           </>
         )}
         {tab === "解析・設定" && (
           <>
             <h2 style={{ fontSize: 16, marginBottom: 10 }}>解析・設定判別</h2>
-            {m.hasSpec
-              ? specData ? (specData.spec ? <Content html={specData.spec} /> : <Pending text="解析データを読み込めませんでした。" />) : <Loading />
-              : <Pending text="解析データは準備中です。" />}
+            {!m.hasSpec ? <Pending text="解析データは準備中です。" />
+              : !premium ? <PaywallCard label="解析・設定は会員限定です" />
+              : specData ? (specData.spec ? <Content html={specData.spec} /> : <Pending text="解析データを読み込めませんでした。" />) : <Loading />}
           </>
         )}
         {tab === "大量集計" && (
           <>
             <h2 style={{ fontSize: 16, marginBottom: 10 }}>大量集計</h2>
-            {m.hasShukei
-              ? specData ? (specData.shukei ? <Content html={specData.shukei} /> : <Pending text="集計データを読み込めませんでした。" />) : <Loading />
-              : cols.length
+            {!m.hasShukei
+              ? (cols.length
                 ? <Pending text="機種別の大量集計データは「コラム」タブの実践・考察記事にまとめています。" />
-                : <Pending text="大量集計データはありません。" />}
+                : <Pending text="大量集計データはありません。" />)
+              : !premium ? <PaywallCard label="大量集計は会員限定です" />
+              : specData ? (specData.shukei ? <Content html={specData.shukei} /> : <Pending text="集計データを読み込めませんでした。" />) : <Loading />}
           </>
         )}
         {tab === "コラム" && (
