@@ -25,7 +25,8 @@ self.addEventListener("fetch", (e) => {
         .then((res) => { if (res && res.status === 200 && res.type === "basic") cache.put(req, res.clone()); return res; })
         .catch(() => null);
       // キャッシュ優先(即表示)＋背景更新。未キャッシュはネットワーク。オフライン時はナビをトップにフォールバック。
-      return cached || (await network) || (req.mode === "navigate" ? cache.match("/suro-hub/") : Response.error());
+      // フォールバック先は登録スコープ(=基底URL)から導出＝URL/基底パス変更に自動追従。
+      return cached || (await network) || (req.mode === "navigate" ? cache.match(self.registration.scope) : Response.error());
     })
   );
 });

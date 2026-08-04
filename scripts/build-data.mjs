@@ -6,6 +6,7 @@ import path from "path";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { load as loadHtml } from "/Users/ijichiyuuta/.superset/projects/slolabo/scraper/node_modules/cheerio/dist/commonjs/index.js";
+import { BASE_PATH } from "../siteConfig.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
@@ -44,7 +45,7 @@ const cleanEv = (html) => {
 };
 const idOf = (name) => "m" + crypto.createHash("md5").update(name).digest("hex").slice(0, 10);
 const artId = (key) => "a" + crypto.createHash("md5").update(key).digest("hex").slice(0, 10);
-const BASEPATH = "/suro-hub"; // GitHub Pages プロジェクトサイト。注入HTML内リンクは実URLを直書き。
+const BASEPATH = BASE_PATH; // 基底パスは siteConfig.mjs に集約(URL変更はそこ1箇所)。
 const postMeta = (id) => { const p = byPost[id]; if (!p) return null; return { id, title: decode((p.title.rendered || "").trim()), date: (p.date || "").slice(0, 10), cats: p.categories || [] }; };
 
 // 研究所投稿HTMLのクリーニング(slolabo gen.mjs cleanを踏襲)。stripCalc=計算ツールDOM/データを除去(別途iframe表示)。
