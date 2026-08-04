@@ -8,4 +8,4 @@ export const AUTH_CONFIGURED = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 //   準備（①下記SQLでテーブル作成 ②Authentication>Users>Add userで自分のアカウント作成
 //   ③Allow new users to sign up をOFF）が済んだら true にして再デプロイ→ログイン必須に切替。
 //   ※ AUTH_CONFIGURED が true ならログイン中はお気に入り/ロガー/メモがアカウント同期される。
-export const LOGIN_REQUIRED = false;
+export const LOGIN_REQUIRED = true;
