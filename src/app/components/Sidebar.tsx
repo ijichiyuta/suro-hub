@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGrid, Search, Calculator, Star } from "lucide-react";
+import AccountButton from "./AccountButton";
 
 const ITEMS = [
   { href: "/", label: "機種をさがす", Icon: LayoutGrid, match: (p: string) => p === "/" || p.startsWith("/m") },
@@ -26,6 +27,7 @@ export default function Sidebar() {
           </Link>
         ))}
       </nav>
+      <AccountButton variant="sidebar" />
     </aside>
   );
 }

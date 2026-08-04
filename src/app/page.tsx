@@ -1,8 +1,9 @@
 "use client";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Search, ChevronRight, User } from "lucide-react";
+import { Search, ChevronRight } from "lucide-react";
 import INDEX from "@/data/index.json";
+import AccountButton from "@/app/components/AccountButton";
 
 type M = { id: string; name: string; maker: string; thumb: string; isNew: boolean; sources: { ev: boolean; lab: boolean }; k: string };
 const ALL = INDEX as M[];
@@ -28,7 +29,7 @@ export default function Home() {
       <header className="pad" style={{ paddingTop: 16, paddingBottom: 8, position: "sticky", top: 0, background: "#fff", zIndex: 20, borderBottom: "1px solid var(--line)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 13 }}>
           <h1 style={{ fontSize: 21 }}>機種をさがす</h1>
-          <span style={{ width: 34, height: 34, borderRadius: 4, background: "var(--bg-soft)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--sub)" }}><User size={18} /></span>
+          <AccountButton variant="icon" />
         </div>
         <label className="search">
           <Search size={18} strokeWidth={2} />
