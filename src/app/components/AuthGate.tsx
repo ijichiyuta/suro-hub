@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
@@ -53,6 +54,11 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         <p style={{ color: "var(--light)", fontSize: 12, textAlign: "center", marginTop: 22, lineHeight: 1.6 }}>
           招待制です。アクセスをご希望の方は管理者にご連絡ください。
         </p>
+        <div style={{ marginTop: 18, display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", fontSize: 11.5 }}>
+          <Link href="/terms" style={{ color: "var(--light)" }}>利用規約</Link>
+          <Link href="/tokushoho" style={{ color: "var(--light)" }}>特定商取引法に基づく表記</Link>
+          <Link href="/privacy" style={{ color: "var(--light)" }}>プライバシーポリシー</Link>
+        </div>
       </div>
     </div>
   );

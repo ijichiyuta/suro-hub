@@ -2,6 +2,10 @@
 import Link from "next/link";
 import { ChevronLeft, Check, Crown } from "lucide-react";
 import { useSubscription } from "@/lib/subscription";
+import { PRICE_MONTHLY, PRICE_YEARLY, yen } from "@/lib/pricing";
+
+const YEARLY_PER_MONTH = Math.round(PRICE_YEARLY / 12);
+const YEARLY_OFF = Math.round((1 - PRICE_YEARLY / (PRICE_MONTHLY * 12)) * 100);
 
 const PERKS = [
   "全機種の狙い目・期待値をフル表示",
@@ -44,14 +48,32 @@ export default function Upgrade() {
           </div>
         ) : (
           <>
-            <button className="btn" disabled style={{ width: "100%", justifyContent: "center", marginTop: 20, opacity: 0.6 }}>
-              決済の準備中です（近日公開）
+            <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+              <div style={{ flex: 1, border: "1px solid var(--border)", borderRadius: 10, padding: "16px 14px", textAlign: "center" }}>
+                <div style={{ fontSize: 12, color: "var(--sub)", fontWeight: 700 }}>月額プラン</div>
+                <div className="num" style={{ fontSize: 22, fontWeight: 800, marginTop: 4 }}>{yen(PRICE_MONTHLY)}<span style={{ fontSize: 12, color: "var(--light)", fontWeight: 600 }}>/月</span></div>
+              </div>
+              <div style={{ flex: 1, border: "2px solid var(--blue)", borderRadius: 10, padding: "16px 14px", textAlign: "center", position: "relative", background: "var(--blue-tint)" }}>
+                <span style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", background: "var(--blue)", color: "#fff", fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 10, whiteSpace: "nowrap" }}>約{YEARLY_OFF}%お得</span>
+                <div style={{ fontSize: 12, color: "var(--blue)", fontWeight: 700 }}>年額プラン</div>
+                <div className="num" style={{ fontSize: 22, fontWeight: 800, marginTop: 4 }}>{yen(PRICE_YEARLY)}<span style={{ fontSize: 12, color: "var(--light)", fontWeight: 600 }}>/年</span></div>
+                <div style={{ fontSize: 11, color: "var(--sub)", marginTop: 2 }}>月あたり約{yen(YEARLY_PER_MONTH)}</div>
+              </div>
+            </div>
+            <button className="btn" disabled style={{ width: "100%", justifyContent: "center", marginTop: 16, opacity: 0.6 }}>
+              決済は準備中です（近日公開）
             </button>
-            <p style={{ color: "var(--light)", fontSize: 12, textAlign: "center", marginTop: 12, lineHeight: 1.6 }}>
+            <p style={{ color: "var(--light)", fontSize: 12, textAlign: "center", marginTop: 10, lineHeight: 1.6 }}>
               {loggedIn ? "オンライン決済は現在準備中です。開始までお待ちください。" : "ログインするとアップグレードできます。"}
             </p>
           </>
         )}
+
+        <div style={{ marginTop: 26, paddingTop: 14, borderTop: "1px solid var(--line)", display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center", fontSize: 12 }}>
+          <Link href="/terms" style={{ color: "var(--sub)" }}>利用規約</Link>
+          <Link href="/tokushoho" style={{ color: "var(--sub)" }}>特定商取引法に基づく表記</Link>
+          <Link href="/privacy" style={{ color: "var(--sub)" }}>プライバシーポリシー</Link>
+        </div>
       </main>
     </>
   );
