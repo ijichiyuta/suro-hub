@@ -12,7 +12,7 @@ const ALL = INDEX as M[];
 
 const kana = (s: string) => s.replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
 const norm = (s: string) => kana((s || "").normalize("NFKC").toLowerCase()).replace(/[^0-9a-zぁ-ん一-鿿]/g, "");
-const FILTERS = ["すべて", "新台", "保存", "メーカー"];
+const FILTERS = ["すべて", "新台", "お気に入り", "メーカー"];
 
 export default function Home() {
   const [q, setQ] = useState("");
@@ -30,7 +30,7 @@ export default function Home() {
     return ALL.filter((m) => {
       if (nq && !(m.k.includes(nq) || norm(m.name).includes(nq))) return false;
       if (f === "新台" && !m.isNew) return false;
-      if (f === "保存" && !favSet.has(m.id)) return false;
+      if (f === "お気に入り" && !favSet.has(m.id)) return false;
       if (f === "メーカー" && maker && m.maker !== maker) return false;
       return true;
     });
@@ -93,15 +93,15 @@ export default function Home() {
               <span style={{ display: "block", fontWeight: 700, fontSize: 15, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</span>
               {m.maker && <span style={{ display: "block", color: "var(--light)", fontSize: 12 }}>{m.maker}</span>}
             </span>
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFav(m.id); }}
-              aria-label={favSet.has(m.id) ? "保存を解除" : "保存する"}
-              style={{ background: "none", border: "none", padding: 4, display: "flex", color: favSet.has(m.id) ? "var(--blue)" : "var(--light)" }}>
-              <Star size={19} fill={favSet.has(m.id) ? "var(--blue)" : "none"} />
+            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFav(m.id); }}
+              aria-label={favSet.has(m.id) ? "お気に入りを解除" : "お気に入りに追加"}
+              style={{ background: "none", border: "none", padding: 11, margin: -4, display: "flex", flex: "none", color: favSet.has(m.id) ? "var(--blue)" : "var(--light)", cursor: "pointer", touchAction: "manipulation" }}>
+              <Star size={20} fill={favSet.has(m.id) ? "var(--blue)" : "none"} />
             </button>
           </Link>
         ))}
-        {list.length === 0 && f === "保存" && <p style={{ color: "var(--sub)", padding: 40, textAlign: "center", fontSize: 13.5 }}>保存した機種はまだありません。<br />★をタップで追加できます。</p>}
-        {list.length === 0 && f !== "保存" && <p style={{ color: "var(--sub)", padding: 24, textAlign: "center" }}>該当なし</p>}
+        {list.length === 0 && f === "お気に入り" && <p style={{ color: "var(--sub)", padding: 40, textAlign: "center", fontSize: 13.5 }}>お気に入りはまだありません。<br />★をタップで追加できます。</p>}
+        {list.length === 0 && f !== "お気に入り" && <p style={{ color: "var(--sub)", padding: 24, textAlign: "center" }}>該当なし</p>}
         {list.length > 400 && <p style={{ color: "var(--light)", fontSize: 12, textAlign: "center", padding: 16 }}>上位400件を表示（検索で絞れます）</p>}
       </div>
     </>

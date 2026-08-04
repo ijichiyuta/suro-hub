@@ -34,7 +34,7 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("狙い目");
   const [calc, setCalc] = useState(false);
   const { fav, toggle } = useFav(m.id);
-  const { premium } = useSubscription();  // free=一部プレビュー / premium=全表示
+  const { premium, loading: subLoading } = useSubscription();  // free=一部プレビュー / premium=全表示
   useEffect(() => { pushRecent(m.id); }, [m.id]);
   const savedNote = useNote(m.id);
   const [noteDraft, setNoteDraft] = useState("");
@@ -72,8 +72,9 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
               {m.maker && <span style={{ color: "var(--light)", fontSize: 12 }}>{m.maker}</span>}
             </span>
           </span>
-          <button onClick={toggle} aria-label={fav ? "保存を解除" : "保存する"} style={{ background: "none", border: "none", color: fav ? "var(--blue)" : "var(--light)", display: "flex" }}>
-            <Star size={22} fill={fav ? "var(--blue)" : "none"} />
+          <button type="button" onClick={toggle} aria-label={fav ? "お気に入りを解除" : "お気に入りに追加"}
+            style={{ background: "none", border: "none", color: fav ? "var(--blue)" : "var(--light)", display: "flex", padding: 9, margin: -9, cursor: "pointer", touchAction: "manipulation" }}>
+            <Star size={24} fill={fav ? "var(--blue)" : "none"} />
           </button>
         </div>
         <div className="pad tabs">
@@ -112,7 +113,7 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
                 ))}
               </>
             ) : (
-              <TeaserGate><Content html={m.ev.nerai} /></TeaserGate>
+              <TeaserGate loading={subLoading}><Content html={m.ev.nerai} /></TeaserGate>
             )}
           </>
         )}
@@ -120,6 +121,7 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
           <>
             <h2 style={{ fontSize: 16, marginBottom: 10 }}>解析・設定判別</h2>
             {!m.hasSpec ? <Pending text="解析データは準備中です。" />
+              : subLoading ? <Loading />
               : !premium ? <PaywallCard label="解析・設定は会員限定です" />
               : specData ? (specData.spec ? <Content html={specData.spec} /> : <Pending text="解析データを読み込めませんでした。" />) : <Loading />}
           </>
@@ -131,6 +133,7 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
               ? (cols.length
                 ? <Pending text="機種別の大量集計データは「コラム」タブの実践・考察記事にまとめています。" />
                 : <Pending text="大量集計データはありません。" />)
+              : subLoading ? <Loading />
               : !premium ? <PaywallCard label="大量集計は会員限定です" />
               : specData ? (specData.shukei ? <Content html={specData.shukei} /> : <Pending text="集計データを読み込めませんでした。" />) : <Loading />}
           </>

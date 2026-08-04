@@ -8,7 +8,7 @@ const ITEMS = [
   { href: "/", label: "機種をさがす", Icon: LayoutGrid, match: (p: string) => p === "/" || p.startsWith("/m") },
   { href: "/search", label: "検索", Icon: Search, match: (p: string) => p.startsWith("/search") },
   { href: "/tools", label: "ツール", Icon: Calculator, match: (p: string) => p.startsWith("/tools") },
-  { href: "/saved", label: "保存した機種", Icon: Star, match: (p: string) => p.startsWith("/saved") },
+  { href: "/saved", label: "お気に入り", Icon: Star, match: (p: string) => p.startsWith("/saved") },
 ];
 
 export default function Sidebar() {

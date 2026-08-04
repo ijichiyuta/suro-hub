@@ -15,14 +15,17 @@ export function PaywallCard({ label = "この内容は会員限定です" }: { l
 }
 
 // 狙い目の一部プレビュー: 上部だけ見せて下をフェード＋ロック。
-export function TeaserGate({ children }: { children: React.ReactNode }) {
+//   loading=会員状態の確認中はペイウォールを出さない(プレミアム会員へのちらつき防止)。
+export function TeaserGate({ children, loading = false }: { children: React.ReactNode; loading?: boolean }) {
   return (
     <div>
       <div style={{ position: "relative", maxHeight: 210, overflow: "hidden" }}>
         {children}
         <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 96, background: "linear-gradient(to bottom, rgba(255,255,255,0), #fff)", pointerEvents: "none" }} />
       </div>
-      <div style={{ marginTop: 4 }}><PaywallCard label="続きは会員限定です" /></div>
+      {loading
+        ? <p style={{ color: "var(--light)", fontSize: 12.5, textAlign: "center", padding: "10px 0" }}>読み込み中…</p>
+        : <div style={{ marginTop: 4 }}><PaywallCard label="続きは会員限定です" /></div>}
     </div>
   );
 }

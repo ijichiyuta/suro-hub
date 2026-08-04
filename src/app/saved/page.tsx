@@ -16,7 +16,7 @@ export default function Saved() {
   return (
     <>
       <header className="pad" style={{ paddingTop: 16, paddingBottom: 8, position: "sticky", top: 0, background: "#fff", zIndex: 20, borderBottom: "1px solid var(--line)" }}>
-        <h1 style={{ fontSize: 21 }}>保存した機種</h1>
+        <h1 style={{ fontSize: 21 }}>お気に入り</h1>
         <div style={{ color: "var(--sub)", fontSize: 12.5, marginTop: 6, fontWeight: 700 }}>{list.length}機種</div>
       </header>
 
@@ -38,9 +38,9 @@ export default function Saved() {
                 <span style={{ display: "block", fontWeight: 700, fontSize: 15, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</span>
                 {m.maker && <span style={{ display: "block", color: "var(--light)", fontSize: 12 }}>{m.maker}</span>}
               </span>
-              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFav(m.id); }} aria-label="保存を解除"
-                style={{ background: "none", border: "none", padding: 4, display: "flex", color: "var(--blue)" }}>
-                <Star size={19} fill="var(--blue)" />
+              <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFav(m.id); }} aria-label="お気に入りを解除"
+                style={{ background: "none", border: "none", padding: 11, margin: -4, display: "flex", flex: "none", color: "var(--blue)", cursor: "pointer", touchAction: "manipulation" }}>
+                <Star size={20} fill="var(--blue)" />
               </button>
             </Link>
           ))}
