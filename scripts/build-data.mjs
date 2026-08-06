@@ -206,6 +206,30 @@ for (const e of ev) {
 // 出力
 // ★初期並び=人気順。人気度スコア=研究所記事件数(pop)＋新台ボーナス(現行ホールで打たれる=注目)。
 //   例: 北斗転生2(28)/東京喰種(23)/からくりサーカス(23)…が上位。新台は+6で埋もれず表示。
+// ★自作機種(新台の手動追加)を取り込む。data/authored/<slug>.json = {name,maker,thumb,isNew,pop,nerai,spec,shukei,calc?}
+//   コピー元が無い新台を、既存機種と同じ形式で表示するための仕組み。既存idと衝突する場合は上書き(内容差し替え)。
+const AUTHORED = path.join(ROOT, "data", "authored");
+let authoredN = 0;
+if (fs.existsSync(AUTHORED)) {
+  for (const f of fs.readdirSync(AUTHORED)) {
+    if (!f.endsWith(".json") || f.startsWith("_")) continue; // _template.json 等は無視
+    const a = JSON.parse(fs.readFileSync(path.join(AUTHORED, f), "utf-8"));
+    if (!a.name) continue;
+    const id = a.id || idOf(a.name);
+    unified.set(id, {
+      id, name: a.name, aliases: a.aliases || [], maker: a.maker || "", thumb: a.thumb || "",
+      isNew: a.isNew !== false, pop: a.pop || 0, sources: { ev: false, lab: false, authored: true },
+      authored: true,
+      _authoredNerai: a.nerai || "", _authoredSpec: a.spec || "", _authoredShukei: a.shukei || "",
+      hasCalcAuthored: !!(a.calc && a.calc.rows),  // 期待値表を自作した場合(将来のシミュレーター連携)
+      lab: { specHtml: "", shukeiHtml: "", columns: [] }, ev: null,
+      _norm: [norm(a.name), stripPre(norm(a.name))],
+    });
+    authoredN++;
+  }
+  if (authoredN) console.log(`自作機種(authored)取り込み: ${authoredN}件`);
+}
+
 const popScore = (m) => (m.pop || 0) + (m.isNew ? 6 : 0);
 const machines = [...unified.values()].sort((a, b) => popScore(b) - popScore(a) || (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0) || a.name.localeCompare(b.name, "ja"));
 
@@ -253,6 +277,14 @@ for (const e of ev) {
 // ★リンク内部化を全表示フィールドへ適用
 const maps = { machine: machineKey, article: articleKey };
 for (const m of machines) {
+  // ★自作機種: 原文が本人執筆=オリジナルなのでリライト不要。そのまま表示(内部化のみ)。
+  if (m.authored) {
+    m.neraiSource = "authored"; m.neraiRewritten = !!m._authoredNerai; // 執筆済なら表示ゲート通過
+    m.nerai = m._authoredNerai ? internalizeLinks(m._authoredNerai, maps) : "";
+    if (m._authoredSpec) m.specCombined = internalizeLinks(m._authoredSpec, maps);
+    if (m._authoredShukei && m.lab) m.lab.shukeiHtml = internalizeLinks(m._authoredShukei, maps);
+    continue;
+  }
   // ★狙い目の生原文を確定: 期待値サイト優先、無ければ研究所の狙い目本文で補完（ソース非依存）。
   const neraiRaw = (m.ev && m.ev.nerai) ? m.ev.nerai : (m._labNerai || "");
   m._neraiRaw = neraiRaw;                                       // nerai-raw 出力用(リライトパイプラインの素材)
@@ -357,7 +389,7 @@ for (const m of machines) {
   m.hasSpec = !!specHtml; m.hasShukei = !!shukeiHtml; m.hasFullNerai = !!neraiFull;
   m.neraiTeaser = teaserOf(neraiFull); // 冒頭プレビュー(無料会員の一部表示＋即時表示用・インライン)
   // 機種JSONから重いフィールド(狙い目全文/解析/集計)を除去(遅延取得へ)。teaserのみインライン維持。
-  const { _norm, _labNerai, _neraiRaw, nerai, specCombined, ...rest } = m;
+  const { _norm, _labNerai, _neraiRaw, _authoredNerai, _authoredSpec, _authoredShukei, nerai, specCombined, ...rest } = m;
   if (rest.ev) { const { spec, nerai: _en, ...evLight } = rest.ev; rest.ev = evLight; }
   if (rest.lab) { const { specHtml: _s, shukeiHtml: _k, ...labLight } = rest.lab; rest.lab = labLight; }
   fs.writeFileSync(path.join(OUT, "machines", m.id + ".json"), JSON.stringify(rest));
