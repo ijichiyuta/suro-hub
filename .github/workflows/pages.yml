@@ -39,3 +39,6 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          timeout: 1800000   # 30分。out/が121MB/3498ファイルと大きく既定10分では配信が間に合わずタイムアウトするため延長。
+          error_count: 25
