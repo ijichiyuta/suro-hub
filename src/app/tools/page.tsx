@@ -3,7 +3,7 @@ import { Calculator, TrendingDown, NotebookPen, ChevronRight } from "lucide-reac
 
 const TOOLS = [
   { Icon: NotebookPen, name: "稼働ロガー", desc: "収支・実戦を記録（端末保存＋ログイン同期）", href: "/tools/logger" },
-  { Icon: Calculator, name: "期待値計算", desc: "各機種ページの「期待値を計算する」から利用", href: null },
+  { Icon: Calculator, name: "期待値シミュレーター", desc: "スペックを入力して期待値表・ボーダーを算出（新台の狙い目作成に）", href: "/tools/calc" },
   { Icon: TrendingDown, name: "下振れシミュレーター", desc: "試行回数から下振れ幅を確認（準備中）", href: null },
 ];
 
