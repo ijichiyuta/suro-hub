@@ -164,6 +164,15 @@ for (const m of lab) {
 const labByNorm = new Map();
 for (const [id, mc] of unified) { for (const k of mc._norm) if (k && !labByNorm.has(k)) labByNorm.set(k, id); }
 
+// ★強制統合ルール: 名称ゆらぎ(スマスロ接頭辞/サブタイトル差)で自動統合が外れた「同一機種のev↔labペア」を
+//   明示指定して統合する。data/merge-overrides.json = [[evName, labName], ...]。続編/スピンオフは含めない(誤統合防止)。
+let forceMerge = new Map();
+try {
+  const ov = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "merge-overrides.json"), "utf-8"));
+  for (const [evName, labName] of ov) { const lid = idOf(labName); if (unified.has(lid)) forceMerge.set(norm(evName), lid); else console.warn(`⚠ 強制統合: lab機種が見つからない「${labName}」`); }
+  console.log(`強制統合ルール: ${forceMerge.size}件`);
+} catch {}
+
 // 期待値機種をマッチ（記事/ツールは除外）
 const artRe = /狙い|実践|考察|シミュ|紹介|について|履歴|打法|データ|サブスク|note|優遇冷遇|突入契機|重視すべき/;
 let matched = 0, added = 0, skipped = 0;
@@ -171,7 +180,7 @@ for (const e of ev) {
   const name = decode(e.title || "").replace(/🆕|🔥|⭐|★/g, "").trim();
   if (!name || artRe.test(name)) { skipped++; continue; }
   const n = norm(name), s = stripPre(n);
-  const hitId = labByNorm.get(n) || labByNorm.get(s);
+  const hitId = forceMerge.get(n) || labByNorm.get(n) || labByNorm.get(s); // 強制統合を最優先
   const neraiHtml = cleanEv((e.nerai_html || "") + (e.tenjo_html && !/(狙い目|天井)/.test(e.nerai_html || "") ? e.tenjo_html : ""));
   const evData = { slug: e.slug, kdash: e.kdash_url || null, nerai: neraiHtml, spec: cleanEv(e.kaiseki_html || "") };
   if (hitId) {
