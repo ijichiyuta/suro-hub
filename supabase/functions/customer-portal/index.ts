@@ -3,7 +3,12 @@
 //   フロント: ログイン中ユーザーのJWTで叩く。本人のStripe顧客のポータルへ誘導。
 import Stripe from "https://esm.sh/stripe@17.7.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { corsHeaders } from "../_shared/cors.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   apiVersion: "2024-12-18.acacia",

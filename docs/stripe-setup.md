@@ -18,12 +18,15 @@ create index if not exists profiles_stripe_customer_idx on public.profiles (stri
 ```
 
 ## 2. Stripeアカウント & 価格
-1. https://stripe.com で登録（日本・本人/事業者確認）。まずは**テストモード**で通し、後で本番へ。
-2. 商品を作成し、**継続（recurring）価格**を2つ登録:
-   - 月額: ¥780 / 月（JPY）
-   - 年額: ¥5,980 / 年（JPY）
-3. それぞれの **価格ID**（`price_xxx`）を控える。
-4. **APIキー**（`sk_test_...` / 本番は `sk_live_...`）を控える。
+専用アカウント「スマスマ期待値ラボ」（スマートコネクトとは別・個別アカウント）。
+
+**★テスト環境では 2026-08-07 に API で作成済み:**
+- 商品: `prod_V1oZuPg2Zvkph9`（スマスマ期待値ラボ プレミアム）
+- 月額 ¥780: `price_1U1kwMAx6pdLjCbqNLDpzZgZ`
+- 年額 ¥5,980: `price_1U1kwMAx6pdLjCbqiiW4PpXb`
+
+※これは**テストモードの**ID。本番アクティベート後は本番モードで同じ2価格を作り直し、その`price_...`（live）に差し替える。
+`sk_test_...`（本番は`sk_live_...`）のシークレットキーも控える。
 
 ## 3. Supabase CLI で Edge Functions をデプロイ
 ```bash
@@ -34,11 +37,12 @@ supabase link --project-ref rhlzapshrggtozqzkran
 
 # シークレット設定（値は自分のものに）
 supabase secrets set \
-  STRIPE_SECRET_KEY=sk_test_xxx \
-  STRIPE_PRICE_MONTHLY=price_xxx_month \
-  STRIPE_PRICE_YEARLY=price_xxx_year \
-  SITE_URL=https://ijichiyuta.github.io/suro-hub/
-#   ↑ カスタムドメインにしたら SITE_URL をそのドメイン(末尾スラッシュ付き)に変更
+  STRIPE_SECRET_KEY=sk_test_あなたのキー \
+  STRIPE_PRICE_MONTHLY=price_1U1kwMAx6pdLjCbqNLDpzZgZ \
+  STRIPE_PRICE_YEARLY=price_1U1kwMAx6pdLjCbqiiW4PpXb \
+  SITE_URL=https://smasuro-lab.com/
+#   ↑ price IDはテスト環境の作成済みの値。SITE_URLはカスタムドメイン(末尾スラッシュ付き)。
+#     ドメイン切替前に試すなら SITE_URL=https://ijichiyuta.github.io/suro-hub/ でも可
 
 # デプロイ（3関数）
 supabase functions deploy create-checkout
