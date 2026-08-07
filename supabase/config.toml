@@ -1,0 +1,14 @@
+project_id = "rhlzapshrggtozqzkran"
+
+# Stripe決済のEdge Functions。
+#  - create-checkout / customer-portal … ユーザーのJWTで呼ぶが、CORSプリフライト(OPTIONS)を
+#    ゲートで弾かせないため verify_jwt=false にし、関数内で supabase.auth.getUser により本人確認する。
+#  - stripe-webhook … StripeからSupabaseのJWT無しで叩かれるので verify_jwt=false 必須(署名で検証)。
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.customer-portal]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false

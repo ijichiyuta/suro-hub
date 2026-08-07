@@ -1,8 +1,11 @@
 "use client";
 import Link from "next/link";
-import { ChevronLeft, Check, Crown } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronLeft, Check, Crown, Settings } from "lucide-react";
 import { useSubscription } from "@/lib/subscription";
 import { PRICE_MONTHLY, PRICE_YEARLY, yen } from "@/lib/pricing";
+import { BILLING_ENABLED } from "@/lib/billingConfig";
+import { startCheckout, openCustomerPortal } from "@/lib/checkout";
 
 const YEARLY_PER_MONTH = Math.round(PRICE_YEARLY / 12);
 const YEARLY_OFF = Math.round((1 - PRICE_YEARLY / (PRICE_MONTHLY * 12)) * 100);
@@ -17,6 +20,27 @@ const PERKS = [
 
 export default function Upgrade() {
   const { premium, loggedIn } = useSubscription();
+  const [busy, setBusy] = useState<"" | "monthly" | "yearly" | "portal">("");
+  const [err, setErr] = useState("");
+  const [notice, setNotice] = useState("");
+
+  // 決済後のリダイレクト(?checkout=success|cancel)を拾って表示。反映はWebhook経由なので数秒待つ旨も。
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("checkout");
+    if (q === "success") setNotice("ご登録ありがとうございます。反映まで数秒かかる場合があります。");
+    else if (q === "cancel") setNotice("お手続きはキャンセルされました。");
+    if (q) window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+
+  const buy = async (plan: "monthly" | "yearly") => {
+    setErr(""); setBusy(plan);
+    try { await startCheckout(plan); } catch (e: unknown) { setErr(e instanceof Error ? e.message : String(e)); setBusy(""); }
+  };
+  const portal = async () => {
+    setErr(""); setBusy("portal");
+    try { await openCustomerPortal(); } catch (e: unknown) { setErr(e instanceof Error ? e.message : String(e)); setBusy(""); }
+  };
+
   return (
     <>
       <header style={{ position: "sticky", top: 0, background: "#fff", zIndex: 20, borderBottom: "1px solid var(--border)" }}>
@@ -33,6 +57,10 @@ export default function Upgrade() {
           <div style={{ color: "var(--sub)", fontSize: 13, marginTop: 4 }}>全機種の狙い目・解析・集計がすべて見放題</div>
         </div>
 
+        {notice && (
+          <div style={{ marginBottom: 16, textAlign: "center", fontSize: 13, padding: "12px", background: "var(--blue-tint)", color: "var(--blue)", borderRadius: 8, fontWeight: 700 }}>{notice}</div>
+        )}
+
         <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 18 }}>
           {PERKS.map((p) => (
             <div key={p} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0" }}>
@@ -43,29 +71,54 @@ export default function Upgrade() {
         </div>
 
         {premium ? (
-          <div style={{ marginTop: 20, textAlign: "center", color: "var(--green)", fontWeight: 700, fontSize: 14, padding: "14px", background: "var(--green-tint)", borderRadius: 8 }}>
-            すでにプレミアム会員です。ありがとうございます！
-          </div>
+          <>
+            <div style={{ marginTop: 20, textAlign: "center", color: "var(--green)", fontWeight: 700, fontSize: 14, padding: "14px", background: "var(--green-tint)", borderRadius: 8 }}>
+              すでにプレミアム会員です。ありがとうございます！
+            </div>
+            {BILLING_ENABLED && (
+              <button onClick={portal} disabled={busy === "portal"} className="btn" style={{ width: "100%", justifyContent: "center", marginTop: 12, background: "#fff", color: "var(--ink)", border: "1px solid var(--border)", opacity: busy === "portal" ? 0.6 : 1 }}>
+                <Settings size={15} />{busy === "portal" ? "読み込み中…" : "サブスクの管理・解約"}
+              </button>
+            )}
+          </>
         ) : (
           <>
             <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
               <div style={{ flex: 1, border: "1px solid var(--border)", borderRadius: 10, padding: "16px 14px", textAlign: "center" }}>
                 <div style={{ fontSize: 12, color: "var(--sub)", fontWeight: 700 }}>月額プラン</div>
                 <div className="num" style={{ fontSize: 22, fontWeight: 800, marginTop: 4 }}>{yen(PRICE_MONTHLY)}<span style={{ fontSize: 12, color: "var(--light)", fontWeight: 600 }}>/月</span></div>
+                {BILLING_ENABLED && loggedIn && (
+                  <button onClick={() => buy("monthly")} disabled={!!busy} className="btn" style={{ width: "100%", justifyContent: "center", marginTop: 12, background: "#fff", color: "var(--blue)", border: "1px solid var(--blue)", opacity: busy ? 0.6 : 1 }}>{busy === "monthly" ? "…" : "月額で登録"}</button>
+                )}
               </div>
               <div style={{ flex: 1, border: "2px solid var(--blue)", borderRadius: 10, padding: "16px 14px", textAlign: "center", position: "relative", background: "var(--blue-tint)" }}>
                 <span style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", background: "var(--blue)", color: "#fff", fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 10, whiteSpace: "nowrap" }}>約{YEARLY_OFF}%お得</span>
                 <div style={{ fontSize: 12, color: "var(--blue)", fontWeight: 700 }}>年額プラン</div>
                 <div className="num" style={{ fontSize: 22, fontWeight: 800, marginTop: 4 }}>{yen(PRICE_YEARLY)}<span style={{ fontSize: 12, color: "var(--light)", fontWeight: 600 }}>/年</span></div>
                 <div style={{ fontSize: 11, color: "var(--sub)", marginTop: 2 }}>月あたり約{yen(YEARLY_PER_MONTH)}</div>
+                {BILLING_ENABLED && loggedIn && (
+                  <button onClick={() => buy("yearly")} disabled={!!busy} className="btn" style={{ width: "100%", justifyContent: "center", marginTop: 12, opacity: busy ? 0.6 : 1 }}>{busy === "yearly" ? "…" : "年額で登録"}</button>
+                )}
               </div>
             </div>
-            <button className="btn" disabled style={{ width: "100%", justifyContent: "center", marginTop: 16, opacity: 0.6 }}>
-              決済は準備中です（近日公開）
-            </button>
-            <p style={{ color: "var(--light)", fontSize: 12, textAlign: "center", marginTop: 10, lineHeight: 1.6 }}>
-              {loggedIn ? "オンライン決済は現在準備中です。開始までお待ちください。" : "ログインするとアップグレードできます。"}
-            </p>
+
+            {err && <p style={{ color: "#e5484d", fontSize: 12.5, textAlign: "center", marginTop: 12 }}>{err}</p>}
+
+            {!BILLING_ENABLED && (
+              <>
+                <button className="btn" disabled style={{ width: "100%", justifyContent: "center", marginTop: 16, opacity: 0.6 }}>
+                  決済は準備中です（近日公開）
+                </button>
+                <p style={{ color: "var(--light)", fontSize: 12, textAlign: "center", marginTop: 10, lineHeight: 1.6 }}>
+                  オンライン決済は現在準備中です。開始までお待ちください。
+                </p>
+              </>
+            )}
+            {BILLING_ENABLED && !loggedIn && (
+              <p style={{ color: "var(--light)", fontSize: 12, textAlign: "center", marginTop: 14, lineHeight: 1.6 }}>
+                ログインするとアップグレードできます。
+              </p>
+            )}
           </>
         )}
 

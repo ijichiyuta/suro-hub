@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import Landing from "./Landing";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
@@ -17,6 +18,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [pw, setPw] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showLogin, setShowLogin] = useState(false); // 未ログイン時: false=LP表示 / true=ログインフォーム
 
   useEffect(() => {
     if (!supabase) { setReady(true); return; }
@@ -31,6 +33,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
           setErr(/not_invited|saving new user|database error|signups? not allowed/i.test(oerr)
             ? "このGoogleアカウントは招待されていません。アクセスをご希望の方は管理者にご連絡ください。"
             : "ログインに失敗しました。時間をおいて再度お試しください。");
+          setShowLogin(true); // エラーはログインフォーム側で見せる
           window.history.replaceState(null, "", window.location.pathname);
         }
       }
@@ -57,6 +60,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (!ready) return null;
   if (session) return <>{children}</>;
+  if (!showLogin) return <Landing onLogin={() => setShowLogin(true)} />;
 
   const login = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,6 +83,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 340 }}>
+        <button onClick={() => { setShowLogin(false); setErr(""); }} style={{ background: "none", border: "none", color: "var(--sub)", fontSize: 13, padding: 0, marginBottom: 18, cursor: "pointer" }}>← 戻る</button>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ fontWeight: 800, fontSize: 21, letterSpacing: "-0.02em" }}>スマスマ期待値ラボ</div>
           <div style={{ color: "var(--light)", fontSize: 13, marginTop: 6 }}>ログインしてください</div>
