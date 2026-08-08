@@ -1,21 +1,18 @@
-name: Deploy to GitHub Pages
+# 本番は Cloudflare Pages（smasuro-lab.com）へ配信。
+#   ローカル全再生成が必要な時は `npm run deploy`（build-data→build-calc→build→wrangler pages deploy）。
+#   このCIは push 時に「コミット済みの src/data・public/calc」から build して Pages へデプロイする。
+#   ⚠ 有効化には GitHub リポの Secrets に CLOUDFLARE_API_TOKEN（Cloudflare Pages:Edit 権限）が必要。
+#      未設定の間は deploy をスキップ（run は成功のまま）＝github.io を壊さない。
+#   （旧: GitHub Pages 配信は basePath 空へ移行したため廃止）
+name: Deploy to Cloudflare Pages
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
-
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,22 +20,15 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - uses: actions/configure-pages@v5
       - run: npm install --no-audit --no-fund
       - run: npm run build
-      - uses: actions/upload-pages-artifact@v3
+      - name: Check Cloudflare token
+        id: cf
+        run: echo "has_token=${{ secrets.CLOUDFLARE_API_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+      - name: Deploy to Cloudflare Pages
+        if: steps.cf.outputs.has_token == 'true'
+        uses: cloudflare/wrangler-action@v3
         with:
-          path: out
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
-        with:
-          timeout: 1800000   # 30分。out/が121MB/3498ファイルと大きく既定10分では配信が間に合わずタイムアウトするため延長。
-          error_count: 25
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy out --project-name=smasuro-lab --branch=main

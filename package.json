@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "deploy": "node scripts/build-data.mjs && node scripts/build-calc.mjs && next build && npx wrangler pages deploy out --project-name=smasuro-lab --branch=main --commit-dirty=true"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.0",
