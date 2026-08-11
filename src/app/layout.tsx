@@ -5,6 +5,7 @@ import TabBar from "./components/TabBar";
 import Sidebar from "./components/Sidebar";
 import Gate from "./components/Gate";
 import PWA from "./components/PWA";
+import AuthSync from "./components/AuthSync";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
@@ -44,6 +45,7 @@ export default function RootLayout({
     <html lang="ja" className={`${noto.variable} ${inter.variable}`}>
       <body>
         <PWA />
+        <AuthSync />
         <Gate>
           <Sidebar />
           <div className="app">

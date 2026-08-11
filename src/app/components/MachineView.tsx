@@ -6,13 +6,14 @@ import { useFav } from "@/lib/favorites";
 import { pushRecent } from "@/lib/recent";
 import { useNote, setNote } from "@/lib/notes";
 import { useSubscription } from "@/lib/subscription";
-import { PaywallCard, TeaserGate } from "./Paywall";
+import { supabase } from "@/lib/supabase";
+import { PaywallCard } from "./Paywall";
 
 type Col = { id: number; title: string; date: string };
 type Machine = {
   id: string; name: string; aliases: string[]; maker: string; thumb: string; isNew: boolean;
   hasCalc?: boolean; hasSpec?: boolean; hasShukei?: boolean; hasFullNerai?: boolean;
-  neraiTeaser?: string; neraiInline?: string; neraiSource?: string;
+  neraiTeaser?: string; neraiSource?: string;
   sources: { ev: boolean; lab: boolean };
   lab: null | { columns: Col[] };
   ev: null | { slug: string; kdash: string | null };
@@ -45,13 +46,22 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
   //   プレミアムは機種を開いた時点でまとめて取得(狙い目=既定タブを速く出すため)。
   const [specData, setSpecData] = useState<{ nerai?: string; spec: string; shukei: string; error?: boolean } | null>(null);
   const [specLoading, setSpecLoading] = useState(false);
-  const needData = premium && ((m.hasFullNerai && !m.neraiInline) || m.hasSpec || m.hasShukei);
+  const needData = premium && (m.hasFullNerai || m.hasSpec || m.hasShukei);
   useEffect(() => {
     if (!needData || specData || specLoading) return;
     setSpecLoading(true);
-    fetch(`${BASE}/data/spec/${m.id}.json`)
-      .then((r) => r.json())
-      .then((d) => setSpecData(d))
+    (async () => {
+      // 保護されたデータなのでアクセストークンを付与(Cloudflare Functionが会員判定)。cookie競合を避け確実に。
+      let headers: Record<string, string> | undefined;
+      try {
+        const { data } = supabase ? await supabase.auth.getSession() : { data: { session: null } };
+        const t = data.session?.access_token;
+        if (t) headers = { Authorization: `Bearer ${t}` };
+      } catch { /* トークン無しでも試行(公開機種等) */ }
+      const r = await fetch(`${BASE}/data/spec/${m.id}.json`, headers ? { headers } : undefined);
+      if (!r.ok) throw new Error(String(r.status));
+      setSpecData(await r.json());
+    })()
       .catch(() => setSpecData({ spec: "", shukei: "", error: true }))
       .finally(() => setSpecLoading(false));
   }, [needData, specData, specLoading, m.id]);
@@ -100,10 +110,10 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
               <Pending text="この機種の狙い目データは準備中です。" />
             ) : premium ? (
               <>
-                {/* 小さい狙い目はインライン即・全文表示。大きい期待値表のみ遅延(その間teaser、「読み込み中…」は出さない) */}
-                <Content html={m.neraiInline || specData?.nerai || m.neraiTeaser || ""} />
-                {/* 計算ボタンは全文が表示されてから出す=teaser→全文の高さ変化でボタンが飛ぶのを防ぐ */}
-                {m.hasCalc && (m.neraiInline || specData) && (calc ? (
+                {/* 狙い目全文は保護ファイル(遅延)から取得。取得中は冒頭teaserを表示し全文へ差替(読み込み中テキストは出さない) */}
+                <Content html={specData?.nerai || m.neraiTeaser || ""} />
+                {/* 計算ボタンは全文表示後に出す=teaser→全文の高さ変化でボタンが飛ぶのを防ぐ */}
+                {m.hasCalc && specData && (calc ? (
                   <div style={{ marginTop: 16 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                       <h3 style={{ fontSize: 15 }}>期待値計算ツール</h3>
@@ -115,8 +125,8 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
                   <button className="btn" style={{ marginTop: 16 }} onClick={() => setCalc(true)}><Calculator size={18} /> 期待値を計算する</button>
                 ))}
               </>
-            ) : (
-              <TeaserGate loading={subLoading}><Content html={m.neraiTeaser || ""} /></TeaserGate>
+            ) : subLoading ? null : (
+              <PaywallCard label="狙い目・期待値は会員限定です" />
             )}
           </>
         )}
