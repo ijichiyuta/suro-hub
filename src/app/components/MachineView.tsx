@@ -12,7 +12,7 @@ type Col = { id: number; title: string; date: string };
 type Machine = {
   id: string; name: string; aliases: string[]; maker: string; thumb: string; isNew: boolean;
   hasCalc?: boolean; hasSpec?: boolean; hasShukei?: boolean; hasFullNerai?: boolean;
-  neraiTeaser?: string; neraiSource?: string;
+  neraiTeaser?: string; neraiInline?: string; neraiSource?: string;
   sources: { ev: boolean; lab: boolean };
   lab: null | { columns: Col[] };
   ev: null | { slug: string; kdash: string | null };
@@ -45,7 +45,7 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
   //   プレミアムは機種を開いた時点でまとめて取得(狙い目=既定タブを速く出すため)。
   const [specData, setSpecData] = useState<{ nerai?: string; spec: string; shukei: string; error?: boolean } | null>(null);
   const [specLoading, setSpecLoading] = useState(false);
-  const needData = premium && (m.hasFullNerai || m.hasSpec || m.hasShukei);
+  const needData = premium && ((m.hasFullNerai && !m.neraiInline) || m.hasSpec || m.hasShukei);
   useEffect(() => {
     if (!needData || specData || specLoading) return;
     setSpecLoading(true);
@@ -100,9 +100,10 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
               <Pending text="この機種の狙い目データは準備中です。" />
             ) : premium ? (
               <>
-                {/* teaserを即表示し、全文が来たら滑らかに差し替え(「読み込み中…」は出さない) */}
-                <Content html={specData?.nerai || m.neraiTeaser || ""} />
-                {m.hasCalc && (calc ? (
+                {/* 小さい狙い目はインライン即・全文表示。大きい期待値表のみ遅延(その間teaser、「読み込み中…」は出さない) */}
+                <Content html={m.neraiInline || specData?.nerai || m.neraiTeaser || ""} />
+                {/* 計算ボタンは全文が表示されてから出す=teaser→全文の高さ変化でボタンが飛ぶのを防ぐ */}
+                {m.hasCalc && (m.neraiInline || specData) && (calc ? (
                   <div style={{ marginTop: 16 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                       <h3 style={{ fontSize: 15 }}>期待値計算ツール</h3>

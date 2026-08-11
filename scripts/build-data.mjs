@@ -381,13 +381,18 @@ for (const m of machines) {
   //   表示しない=リライト完了まで「準備中」に留める(本人方針:元と同一文章NG)。ev更新で原文が変わり
   //   旧リライトがゲート落ちした機種も自動でここに入り、再リライトまで準備中となる。
   const neraiFull = m.neraiRewritten ? m.nerai : "";
-  if (specHtml || shukeiHtml || neraiFull) {                             // 遅延読込ファイル(狙い目/解析/集計を同梱)
-    const payload = JSON.stringify({ nerai: neraiFull, spec: specHtml, shukei: shukeiHtml });
+  // ★狙い目のちらつき防止: 小さい狙い目(<40KB)は機種JSONに埋め込み即・全文表示。大きい期待値表のみ遅延読込。
+  const NERAI_INLINE_MAX = 40000;
+  const inlineNerai = !!neraiFull && Buffer.byteLength(neraiFull, "utf8") < NERAI_INLINE_MAX;
+  const specNerai = inlineNerai ? "" : neraiFull;                        // インライン時は遅延ファイルにnerai入れない(重複回避)
+  if (specHtml || shukeiHtml || specNerai) {                             // 遅延読込ファイル(解析/集計 + 大きい狙い目のみ)
+    const payload = JSON.stringify({ nerai: specNerai, spec: specHtml, shukei: shukeiHtml });
     fs.writeFileSync(path.join(SPECOUT, m.id + ".json"), payload);
     splitBytes += payload.length; splitCount++;
   }
   m.hasSpec = !!specHtml; m.hasShukei = !!shukeiHtml; m.hasFullNerai = !!neraiFull;
-  m.neraiTeaser = teaserOf(neraiFull); // 冒頭プレビュー(無料会員の一部表示＋即時表示用・インライン)
+  m.neraiInline = inlineNerai ? neraiFull : "";  // 小さい狙い目は即表示用に機種JSONへ埋め込み
+  m.neraiTeaser = teaserOf(neraiFull); // 冒頭プレビュー(無料会員の一部表示・大きい狙い目の即時表示用)
   // 機種JSONから重いフィールド(狙い目全文/解析/集計)を除去(遅延取得へ)。teaserのみインライン維持。
   const { _norm, _labNerai, _neraiRaw, _authoredNerai, _authoredSpec, _authoredShukei, nerai, specCombined, ...rest } = m;
   if (rest.ev) { const { spec, nerai: _en, ...evLight } = rest.ev; rest.ev = evLight; }
