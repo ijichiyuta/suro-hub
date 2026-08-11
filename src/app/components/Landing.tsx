@@ -27,14 +27,17 @@ const FEATURES = [
 
 const hideOnError = (e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.visibility = "hidden"; };
 
-export default function Landing({ onLogin }: { onLogin: () => void }) {
+export default function Landing({ onLogin, onSignup }: { onLogin: () => void; onSignup: () => void }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 200, overflowY: "auto" }}>
       {/* ヘッダー(中央寄せ・ボタンは伸ばさない) */}
       <div style={{ position: "sticky", top: 0, background: "rgba(255,255,255,0.9)", backdropFilter: "blur(8px)", borderBottom: "1px solid var(--line)", zIndex: 3 }}>
         <div style={{ maxWidth: 960, margin: "0 auto", padding: "12px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>スマスマ期待値ラボ</div>
-          <button onClick={onLogin} className="btn" style={{ width: "auto", flexShrink: 0, padding: "9px 18px", fontSize: 13.5 }}><LogIn size={15} />ログイン</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+            <button onClick={onLogin} style={{ background: "none", border: "none", color: "var(--sub)", fontWeight: 700, fontSize: 13.5, cursor: "pointer", padding: "6px 4px" }}>ログイン</button>
+            <button onClick={onSignup} className="btn" style={{ width: "auto", padding: "9px 16px", fontSize: 13.5 }}>無料登録</button>
+          </div>
         </div>
       </div>
 
@@ -47,8 +50,9 @@ export default function Landing({ onLogin }: { onLogin: () => void }) {
         <p style={{ color: "var(--sub)", fontSize: "clamp(14px, 2.6vw, 16px)", lineHeight: 1.8, marginTop: 18, maxWidth: 500, marginLeft: "auto", marginRight: "auto" }}>
           300機種以上の狙い目・期待値・解析を、1機種1ページに整理。ホールで開いてすぐ判断できる、あなた専用の期待値リファレンス。
         </p>
-        <div style={{ marginTop: 26 }}>
-          <button onClick={onLogin} className="btn" style={{ width: "auto", padding: "13px 30px", fontSize: 15, margin: "0 auto" }}><LogIn size={17} />ログインして使う</button>
+        <div style={{ marginTop: 26, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+          <button onClick={onSignup} className="btn" style={{ width: "auto", padding: "13px 30px", fontSize: 15 }}>無料で登録して始める<ChevronRight size={17} /></button>
+          <button onClick={onLogin} className="btn" style={{ width: "auto", padding: "13px 24px", fontSize: 15, background: "#fff", color: "var(--ink)", border: "1px solid var(--border)" }}><LogIn size={17} />ログイン</button>
         </div>
         <div style={{ display: "flex", gap: 16, justifyContent: "center", marginTop: 26, color: "var(--light)", fontSize: 12.5, fontWeight: 600, flexWrap: "wrap" }}>
           <span>300機種以上</span><span aria-hidden>・</span><span>狙い目＋期待値</span><span aria-hidden>・</span><span>毎月更新</span>
@@ -81,14 +85,15 @@ export default function Landing({ onLogin }: { onLogin: () => void }) {
         {/* 料金 */}
         <section style={{ marginTop: 48 }}>
           <h2 style={{ fontSize: 20, fontWeight: 800, textAlign: "center", letterSpacing: "-0.02em" }}>料金プラン</h2>
-          <p style={{ color: "var(--sub)", fontSize: 13, textAlign: "center", marginTop: 6 }}>無料でも狙い目の一部をチェック。すべて見るならプレミアム。</p>
+          <p style={{ color: "var(--sub)", fontSize: 13, textAlign: "center", marginTop: 6 }}>登録は無料。全機能（狙い目・解析・集計・計算ツール）の閲覧はプレミアム会員で。</p>
           <div style={{ display: "flex", gap: 12, marginTop: 22, flexWrap: "wrap" }}>
             <div style={{ flex: "1 1 220px", border: "1px solid var(--border)", borderRadius: 12, padding: 20 }}>
-              <div style={{ fontWeight: 700, fontSize: 14, color: "var(--sub)" }}>無料</div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "var(--sub)" }}>無料登録</div>
               <div className="num" style={{ fontSize: 26, fontWeight: 800, margin: "6px 0 14px" }}>¥0</div>
-              {["狙い目の一部プレビュー", "機種の基本情報", "期待値シミュレーター", "稼働ロガー"].map((t) => (
+              {["アカウント作成", "お気に入り・メモの保存"].map((t) => (
                 <div key={t} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", fontSize: 13 }}><Check size={15} style={{ color: "var(--light)", flex: "none" }} />{t}</div>
               ))}
+              <div style={{ fontSize: 11.5, color: "var(--light)", marginTop: 8, lineHeight: 1.6 }}>※狙い目・解析・大量集計・計算ツールはプレミアム限定</div>
             </div>
             <div style={{ flex: "1 1 220px", border: "2px solid var(--blue)", borderRadius: 12, padding: 20, background: "var(--blue-tint)", position: "relative" }}>
               <span style={{ position: "absolute", top: -11, left: 20, background: "var(--blue)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 12 }}>おすすめ</span>
@@ -106,9 +111,9 @@ export default function Landing({ onLogin }: { onLogin: () => void }) {
 
         {/* CTA */}
         <section style={{ marginTop: 44, textAlign: "center", border: "1px solid var(--border)", borderRadius: 12, padding: "clamp(24px, 5vw, 34px) 20px", background: "var(--blue-tint)" }}>
-          <div style={{ fontWeight: 800, fontSize: 18, letterSpacing: "-0.02em" }}>さっそく使ってみる</div>
-          <p style={{ color: "var(--sub)", fontSize: 13, marginTop: 8, lineHeight: 1.7 }}>現在は招待制です。招待をお持ちの方はログインしてください。<br />ご希望の方は管理者までご連絡ください。</p>
-          <button onClick={onLogin} className="btn" style={{ width: "auto", padding: "12px 28px", fontSize: 15, marginTop: 18, margin: "18px auto 0" }}>ログイン<ChevronRight size={16} /></button>
+          <div style={{ fontWeight: 800, fontSize: 18, letterSpacing: "-0.02em" }}>さっそく始める</div>
+          <p style={{ color: "var(--sub)", fontSize: 13, marginTop: 8, lineHeight: 1.7 }}>無料登録して、プレミアム（月額{yen(PRICE_MONTHLY)}／年額{yen(PRICE_YEARLY)}）で<br />全機種の狙い目・解析・計算ツールが見放題に。</p>
+          <button onClick={onSignup} className="btn" style={{ width: "auto", padding: "12px 28px", fontSize: 15, marginTop: 18, margin: "18px auto 0" }}>無料で登録して始める<ChevronRight size={16} /></button>
         </section>
 
         {/* フッター */}
