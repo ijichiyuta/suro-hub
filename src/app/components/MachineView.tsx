@@ -100,7 +100,8 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
               <Pending text="この機種の狙い目データは準備中です。" />
             ) : premium ? (
               <>
-                {specData?.nerai ? <Content html={specData.nerai} /> : <><Content html={m.neraiTeaser || ""} /><Loading /></>}
+                {/* teaserを即表示し、全文が来たら滑らかに差し替え(「読み込み中…」は出さない) */}
+                <Content html={specData?.nerai || m.neraiTeaser || ""} />
                 {m.hasCalc && (calc ? (
                   <div style={{ marginTop: 16 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>

@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ChevronLeft, Check, Crown, Settings } from "lucide-react";
+import { ChevronLeft, Check, Crown, Settings, Loader2 } from "lucide-react";
 import { useSubscription } from "@/lib/subscription";
 import { PRICE_MONTHLY, PRICE_YEARLY, yen } from "@/lib/pricing";
 import { BILLING_ENABLED } from "@/lib/billingConfig";
@@ -88,7 +88,7 @@ export default function Upgrade() {
                 <div style={{ fontSize: 12, color: "var(--sub)", fontWeight: 700 }}>月額プラン</div>
                 <div className="num" style={{ fontSize: 22, fontWeight: 800, marginTop: 4 }}>{yen(PRICE_MONTHLY)}<span style={{ fontSize: 12, color: "var(--light)", fontWeight: 600 }}>/月</span></div>
                 {BILLING_ENABLED && loggedIn && (
-                  <button onClick={() => buy("monthly")} disabled={!!busy} className="btn" style={{ width: "100%", justifyContent: "center", marginTop: 12, background: "#fff", color: "var(--blue)", border: "1px solid var(--blue)", opacity: busy ? 0.6 : 1 }}>{busy === "monthly" ? "…" : "月額で登録"}</button>
+                  <button onClick={() => buy("monthly")} disabled={!!busy} className="btn" style={{ width: "100%", justifyContent: "center", marginTop: 12, background: "#fff", color: "var(--blue)", border: "1px solid var(--blue)", opacity: busy ? 0.6 : 1 }}>{busy === "monthly" ? <><Loader2 size={14} className="spin" />移動中…</> : "月額で登録"}</button>
                 )}
               </div>
               <div style={{ flex: 1, border: "2px solid var(--blue)", borderRadius: 10, padding: "16px 14px", textAlign: "center", position: "relative", background: "var(--blue-tint)" }}>
@@ -97,11 +97,12 @@ export default function Upgrade() {
                 <div className="num" style={{ fontSize: 22, fontWeight: 800, marginTop: 4 }}>{yen(PRICE_YEARLY)}<span style={{ fontSize: 12, color: "var(--light)", fontWeight: 600 }}>/年</span></div>
                 <div style={{ fontSize: 11, color: "var(--sub)", marginTop: 2 }}>月あたり約{yen(YEARLY_PER_MONTH)}</div>
                 {BILLING_ENABLED && loggedIn && (
-                  <button onClick={() => buy("yearly")} disabled={!!busy} className="btn" style={{ width: "100%", justifyContent: "center", marginTop: 12, opacity: busy ? 0.6 : 1 }}>{busy === "yearly" ? "…" : "年額で登録"}</button>
+                  <button onClick={() => buy("yearly")} disabled={!!busy} className="btn" style={{ width: "100%", justifyContent: "center", marginTop: 12, opacity: busy ? 0.6 : 1 }}>{busy === "yearly" ? <><Loader2 size={14} className="spin" />移動中…</> : "年額で登録"}</button>
                 )}
               </div>
             </div>
 
+            {busy && <p style={{ color: "var(--sub)", fontSize: 12.5, textAlign: "center", marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Loader2 size={14} className="spin" />決済ページを準備しています。少々お待ちください…</p>}
             {err && <p style={{ color: "#e5484d", fontSize: 12.5, textAlign: "center", marginTop: 12 }}>{err}</p>}
 
             {!BILLING_ENABLED && (

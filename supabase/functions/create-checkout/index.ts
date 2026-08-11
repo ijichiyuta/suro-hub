@@ -52,6 +52,13 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE);
     const { data: prof } = await admin.from("profiles").select("stripe_customer_id").eq("user_id", user.id).maybeSingle();
     let customerId: string | undefined = prof?.stripe_customer_id ?? undefined;
+    // 保存済み顧客IDが別アカウント/削除済みで無効なら作り直す(自己修復＝アカウント切替に強い)
+    if (customerId) {
+      try {
+        const c = await stripe.customers.retrieve(customerId);
+        if ((c as { deleted?: boolean })?.deleted) customerId = undefined;
+      } catch { customerId = undefined; }
+    }
     if (!customerId) {
       const customer = await stripe.customers.create({ email: user.email, metadata: { user_id: user.id } });
       customerId = customer.id;

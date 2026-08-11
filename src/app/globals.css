@@ -184,4 +184,8 @@ button { font-family: inherit; cursor: pointer; }
   .content { max-width: 820px; }
 }
 
+/* ローディングスピナー(決済ボタン等) */
+.spin { animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
