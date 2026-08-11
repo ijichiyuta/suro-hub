@@ -6,22 +6,25 @@ export const metadata = { title: "特定商取引法に基づく表記 | スマ�
 export default function Tokushoho() {
   return (
     <LegalShell title="特定商取引法に基づく表記" updated="2026年8月5日">
-      <p className="lead">特定商取引に関する法律に基づき、以下のとおり表示します。<span className="fill">【】</span>の項目はご自身の情報に置き換えてください。</p>
+      <p className="lead">特定商取引に関する法律に基づき、以下のとおり表示します。</p>
       <dl>
-        <dt>販売事業者</dt>
-        <dd><span className="fill">【氏名または屋号を記入】</span></dd>
+        <dt>販売事業者（屋号）</dt>
+        <dd>スマートコネクト</dd>
+
+        <dt>運営サイト</dt>
+        <dd>smcn-jp.com</dd>
 
         <dt>運営統括責任者</dt>
-        <dd><span className="fill">【氏名を記入】</span></dd>
+        <dd>ご請求があった場合、遅滞なく開示します。</dd>
 
         <dt>所在地</dt>
-        <dd><span className="fill">【住所を記入】</span>（請求があった場合、遅滞なく開示します）</dd>
+        <dd>ご請求があった場合、遅滞なく開示します。</dd>
 
         <dt>電話番号</dt>
-        <dd><span className="fill">【電話番号を記入】</span>（請求があった場合、遅滞なく開示します）</dd>
+        <dd>ご請求があった場合、遅滞なく開示します。（お問い合わせは下記メールにて承ります）</dd>
 
         <dt>メールアドレス</dt>
-        <dd><span className="fill">【連絡先メールを記入】</span></dd>
+        <dd>ijichiyuuta.adit@gmail.com</dd>
 
         <dt>販売価格</dt>
         <dd>プレミアム会員：月額 {yen(PRICE_MONTHLY)}（税込）／年額 {yen(PRICE_YEARLY)}（税込）。無料会員は一部機能のみ利用可。</dd>
