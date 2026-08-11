@@ -9,8 +9,11 @@ import { BILLING_ENABLED } from "@/lib/billingConfig";
 import { openCustomerPortal } from "@/lib/checkout";
 
 const card: React.CSSProperties = { border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", marginBottom: 16 };
-const cardHead: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: "var(--sub)", padding: "12px 16px 0" };
+const cardHead: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: "var(--sub)", padding: "13px 16px 3px" };
 const row: React.CSSProperties = { display: "flex", alignItems: "center", gap: 12, padding: "13px 16px" };
+const rowBtn: React.CSSProperties = { ...row, width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left", font: "inherit", color: "inherit" };
+const topLine: React.CSSProperties = { borderTop: "1px solid var(--line)" };
+const label: React.CSSProperties = { flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700 };
 
 export default function Account() {
   const { premium } = useSubscription();
@@ -57,7 +60,7 @@ export default function Account() {
         </div>
       </header>
 
-      <main className="pad" style={{ paddingTop: 16, maxWidth: 640, margin: "0 auto" }}>
+      <main className="pad" style={{ paddingTop: 18, maxWidth: 760 }}>
         {msg && <p style={{ background: "var(--green-tint)", color: "var(--green)", fontWeight: 700, fontSize: 13, textAlign: "center", padding: 12, borderRadius: 8, marginBottom: 14 }}>{msg}</p>}
         {err && <p style={{ color: "#e5484d", fontSize: 13, textAlign: "center", marginBottom: 14 }}>{err}</p>}
 
@@ -71,7 +74,7 @@ export default function Account() {
               <span style={{ display: "block", fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user?.email || "—"}</span>
             </span>
           </div>
-          <div style={{ ...row, borderTop: "1px solid var(--line)" }}>
+          <div style={{ ...row, ...topLine }}>
             <Settings size={18} style={{ color: "var(--light)", flex: "none" }} />
             <span style={{ flex: 1 }}>
               <span style={{ display: "block", fontSize: 11, color: "var(--light)" }}>ログイン方法</span>
@@ -89,20 +92,20 @@ export default function Account() {
               <span style={{ display: "block", fontSize: 11, color: "var(--light)" }}>現在のプラン</span>
               <span style={{ display: "block", fontSize: 15, fontWeight: 700, color: premium ? "var(--blue)" : "var(--ink)" }}>{premium ? "プレミアム会員" : "無料会員"}</span>
             </span>
-            {premium && <span className="badge" style={{ background: "var(--blue-tint)", color: "var(--blue)", fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 10 }}>有効</span>}
+            {premium && <span style={{ background: "var(--blue-tint)", color: "var(--blue)", fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 10 }}>有効</span>}
           </div>
           {premium ? (
             BILLING_ENABLED && (
-              <button onClick={portal} disabled={busy === "portal"} className="row" style={{ borderTop: "1px solid var(--line)", width: "100%", background: "none", border: "none", borderTopWidth: 1, borderTopStyle: "solid", borderTopColor: "var(--line)", cursor: "pointer", textAlign: "left" }}>
+              <button onClick={portal} disabled={busy === "portal"} style={{ ...rowBtn, ...topLine, opacity: busy === "portal" ? 0.6 : 1 }}>
                 <RefreshCw size={18} style={{ color: "var(--sub)", flex: "none" }} />
-                <span style={{ flex: 1, fontSize: 14, fontWeight: 700 }}>{busy === "portal" ? "読み込み中…" : "サブスクの管理・解約・お支払い方法"}</span>
+                <span style={label}>{busy === "portal" ? "読み込み中…" : "サブスクの管理・解約・お支払い方法"}</span>
                 <ChevronRight size={18} className="chev" />
               </button>
             )
           ) : (
-            <Link href="/upgrade" className="row" style={{ borderTop: "1px solid var(--line)" }}>
+            <Link href="/upgrade" style={{ ...rowBtn, ...topLine, textDecoration: "none" }}>
               <Crown size={18} style={{ color: "var(--blue)", flex: "none" }} />
-              <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: "var(--blue)" }}>プレミアムにアップグレード</span>
+              <span style={{ ...label, color: "var(--blue)" }}>プレミアムにアップグレード</span>
               <ChevronRight size={18} className="chev" />
             </Link>
           )}
@@ -118,10 +121,10 @@ export default function Account() {
           <div style={cardHead}>設定</div>
           {isEmail ? (
             <>
-              <button onClick={() => { setPwOpen(!pwOpen); setErr(""); }} className="row" style={{ width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
+              <button onClick={() => { setPwOpen(!pwOpen); setErr(""); }} style={rowBtn}>
                 <KeyRound size={18} style={{ color: "var(--sub)", flex: "none" }} />
-                <span style={{ flex: 1, fontSize: 14, fontWeight: 700 }}>パスワードを変更</span>
-                <ChevronRight size={18} className="chev" style={{ transform: pwOpen ? "rotate(90deg)" : "none" }} />
+                <span style={label}>パスワードを変更</span>
+                <ChevronRight size={18} className="chev" style={{ transform: pwOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s" }} />
               </button>
               {pwOpen && (
                 <div style={{ padding: "0 16px 14px", display: "flex", gap: 8, alignItems: "center" }}>
@@ -137,7 +140,7 @@ export default function Account() {
               <span style={{ flex: 1, fontSize: 13, color: "var(--sub)" }}>Googleログインのため、パスワードはGoogle側で管理されます。</span>
             </div>
           )}
-          <div style={{ ...row, borderTop: "1px solid var(--line)" }}>
+          <div style={{ ...row, ...topLine }}>
             <RefreshCw size={18} style={{ color: "var(--light)", flex: "none" }} />
             <span style={{ flex: 1, fontSize: 13, color: "var(--sub)", lineHeight: 1.6 }}>お気に入り・稼働ログ・メモは、ログイン中の端末間で自動同期されます。</span>
             <Check size={16} style={{ color: "var(--green)", flex: "none" }} />
@@ -145,12 +148,12 @@ export default function Account() {
         </div>
 
         {/* ログアウト */}
-        <button onClick={logout} className="row" style={{ width: "100%", background: "none", border: "1px solid var(--border)", borderRadius: 12, cursor: "pointer", textAlign: "left", color: "#e5484d", marginBottom: 20 }}>
+        <button onClick={logout} style={{ ...rowBtn, border: "1px solid var(--border)", borderRadius: 12, color: "#e5484d", marginBottom: 20 }}>
           <LogOut size={18} style={{ flex: "none" }} />
-          <span style={{ flex: 1, fontSize: 14, fontWeight: 700 }}>ログアウト</span>
+          <span style={label}>ログアウト</span>
         </button>
 
-        <div style={{ paddingTop: 6, display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center", fontSize: 12, paddingBottom: 40 }}>
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center", fontSize: 12, paddingBottom: 40 }}>
           <Link href="/terms" style={{ color: "var(--light)" }}>利用規約</Link>
           <Link href="/tokushoho" style={{ color: "var(--light)" }}>特定商取引法に基づく表記</Link>
           <Link href="/privacy" style={{ color: "var(--light)" }}>プライバシーポリシー</Link>
