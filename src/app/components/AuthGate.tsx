@@ -20,6 +20,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [showLogin, setShowLogin] = useState(false); // 未ログイン時: false=LP表示 / true=認証フォーム
+  const [showEmail, setShowEmail] = useState(false); // Google主導。メールは「その他の方法」で展開
 
   useEffect(() => {
     if (!supabase) { setReady(true); return; }
@@ -83,32 +84,36 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
           Googleで{isSignup ? "登録" : "ログイン"}
         </button>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "18px 0" }}>
-          <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
-          <span style={{ fontSize: 12, color: "var(--light)" }}>または</span>
-          <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
-        </div>
+        {err && <p style={{ color: "#e5484d", fontSize: 12.5, textAlign: "center", marginTop: 14, marginBottom: 0 }}>{err}</p>}
+        {notice && <p style={{ color: "var(--green)", fontSize: 12.5, textAlign: "center", marginTop: 14, marginBottom: 0, fontWeight: 700 }}>{notice}</p>}
 
-        <form onSubmit={submit}>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--sub)", marginBottom: 6 }}>メールアドレス</label>
-          <input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-            style={inputStyle} placeholder="you@example.com" />
-          <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--sub)", margin: "16px 0 6px" }}>パスワード{isSignup && "（4文字以上）"}</label>
-          <input type="password" autoComplete={isSignup ? "new-password" : "current-password"} required value={pw} onChange={(e) => setPw(e.target.value)}
-            style={inputStyle} placeholder="••••••••" />
-          {err && <p style={{ color: "#e5484d", fontSize: 12.5, marginTop: 12, marginBottom: 0 }}>{err}</p>}
-          {notice && <p style={{ color: "var(--green)", fontSize: 12.5, marginTop: 12, marginBottom: 0, fontWeight: 700 }}>{notice}</p>}
-          <button type="submit" disabled={busy} className="btn" style={{ width: "100%", justifyContent: "center", marginTop: 22, opacity: busy ? 0.6 : 1 }}>
-            {busy ? "処理中…" : isSignup ? "登録する" : "ログイン"}
+        {!showEmail ? (
+          <button type="button" onClick={() => { setShowEmail(true); setErr(""); setNotice(""); }}
+            style={{ width: "100%", background: "none", border: "none", color: "var(--sub)", fontSize: 12.5, fontWeight: 700, marginTop: 18, cursor: "pointer", padding: 6 }}>
+            メールアドレスで{isSignup ? "登録" : "ログイン"}
           </button>
-        </form>
-
-        <p style={{ color: "var(--sub)", fontSize: 12.5, textAlign: "center", marginTop: 20 }}>
-          {isSignup ? "すでにアカウントをお持ちですか？ " : "アカウントをお持ちでない方は "}
-          <button onClick={() => { setMode(isSignup ? "login" : "signup"); setErr(""); setNotice(""); }} style={{ background: "none", border: "none", color: "var(--blue)", fontWeight: 700, fontSize: 12.5, cursor: "pointer", padding: 0 }}>
-            {isSignup ? "ログイン" : "新規登録"}
-          </button>
-        </p>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "18px 0" }}>
+              <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+              <span style={{ fontSize: 12, color: "var(--light)" }}>メールアドレス</span>
+              <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+            </div>
+            <form onSubmit={submit}>
+              <input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} placeholder="メールアドレス" />
+              <input type="password" autoComplete={isSignup ? "new-password" : "current-password"} required value={pw} onChange={(e) => setPw(e.target.value)} style={{ ...inputStyle, marginTop: 10 }} placeholder={isSignup ? "パスワード（4文字以上）" : "パスワード"} />
+              <button type="submit" disabled={busy} className="btn" style={{ width: "100%", justifyContent: "center", marginTop: 14, opacity: busy ? 0.6 : 1 }}>
+                {busy ? "処理中…" : isSignup ? "メールで登録" : "ログイン"}
+              </button>
+            </form>
+            <p style={{ color: "var(--sub)", fontSize: 12.5, textAlign: "center", marginTop: 16 }}>
+              {isSignup ? "すでにアカウントをお持ちですか？ " : "アカウントをお持ちでない方は "}
+              <button onClick={() => { setMode(isSignup ? "login" : "signup"); setErr(""); setNotice(""); }} style={{ background: "none", border: "none", color: "var(--blue)", fontWeight: 700, fontSize: 12.5, cursor: "pointer", padding: 0 }}>
+                {isSignup ? "ログイン" : "新規登録"}
+              </button>
+            </p>
+          </>
+        )}
         <p style={{ color: "var(--light)", fontSize: 11.5, textAlign: "center", marginTop: 10, lineHeight: 1.6 }}>
           登録は無料です。全機能の閲覧にはプレミアム（月額プラン）へのご登録が必要です。
         </p>
