@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Check } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import Landing from "./Landing";
@@ -70,13 +71,32 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   const isSignup = mode === "signup";
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, overflowY: "auto" }}>
-      <div style={{ width: "100%", maxWidth: 340 }}>
-        <button onClick={() => { setShowLogin(false); setErr(""); setNotice(""); }} style={{ background: "none", border: "none", color: "var(--sub)", fontSize: 13, padding: 0, marginBottom: 18, cursor: "pointer" }}>← 戻る</button>
-        <div style={{ textAlign: "center", marginBottom: 26 }}>
-          <div style={{ fontWeight: 800, fontSize: 21, letterSpacing: "-0.02em" }}>スマスマ期待値ラボ</div>
-          <div style={{ color: "var(--light)", fontSize: 13, marginTop: 6 }}>{isSignup ? "アカウントを新規作成" : "ログイン"}</div>
+    <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "#fff" }}>
+      <div className="auth-split">
+        {/* 左: 説明パネル(PCのみ) */}
+        <div className="auth-left">
+          <div style={{ fontWeight: 800, fontSize: 20, letterSpacing: "-0.02em" }}>スマスマ期待値ラボ</div>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: "clamp(26px, 3vw, 34px)", lineHeight: 1.35, letterSpacing: "-0.02em" }}>打つ前に、勝てる台か<br />ひと目でわかる。</div>
+            <p style={{ marginTop: 16, fontSize: 15, lineHeight: 1.85, color: "rgba(255,255,255,0.9)", maxWidth: 430 }}>300機種以上の狙い目・期待値・解析を、1機種1ページに整理。ホールで開いてすぐ判断できる、あなた専用の期待値リファレンス。</p>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 13, marginTop: 4 }}>
+            {["全機種の狙い目・期待値をフル表示", "解析・設定判別・大量集計データ", "期待値シミュレーター・稼働ロガー", "お気に入り・メモを端末間で同期"].map((t) => (
+              <div key={t} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600 }}>
+                <span style={{ display: "inline-flex", width: 22, height: 22, borderRadius: "50%", background: "rgba(255,255,255,0.22)", alignItems: "center", justifyContent: "center", flex: "none" }}><Check size={14} /></span>
+                {t}
+              </div>
+            ))}
+          </div>
         </div>
+        {/* 右: 認証フォーム */}
+        <div className="auth-right">
+          <div style={{ width: "100%", maxWidth: 360, margin: "0 auto" }}>
+            <button onClick={() => { setShowLogin(false); setErr(""); setNotice(""); }} style={{ background: "none", border: "none", color: "var(--sub)", fontSize: 13, padding: 0, marginBottom: 22, cursor: "pointer" }}>← 戻る</button>
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em" }}>{isSignup ? "アカウント作成" : "ログイン"}</div>
+              <div style={{ color: "var(--light)", fontSize: 13, marginTop: 6 }}>{isSignup ? "無料で登録して始めましょう。" : "スマスマ期待値ラボへようこそ。"}</div>
+            </div>
 
         <button type="button" onClick={google} disabled={busy}
           style={{ width: "100%", height: 46, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: "#fff", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 15, fontWeight: 700, color: "var(--ink)", cursor: "pointer", opacity: busy ? 0.6 : 1 }}>
@@ -117,10 +137,12 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         <p style={{ color: "var(--light)", fontSize: 11.5, textAlign: "center", marginTop: 10, lineHeight: 1.6 }}>
           登録は無料です。全機能の閲覧にはプレミアム（月額プラン）へのご登録が必要です。
         </p>
-        <div style={{ marginTop: 18, display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", fontSize: 11.5 }}>
-          <Link href="/terms" style={{ color: "var(--light)" }}>利用規約</Link>
-          <Link href="/tokushoho" style={{ color: "var(--light)" }}>特定商取引法に基づく表記</Link>
-          <Link href="/privacy" style={{ color: "var(--light)" }}>プライバシーポリシー</Link>
+            <div style={{ marginTop: 18, display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", fontSize: 11.5 }}>
+              <Link href="/terms" style={{ color: "var(--light)" }}>利用規約</Link>
+              <Link href="/tokushoho" style={{ color: "var(--light)" }}>特定商取引法に基づく表記</Link>
+              <Link href="/privacy" style={{ color: "var(--light)" }}>プライバシーポリシー</Link>
+            </div>
+          </div>
         </div>
       </div>
     </div>
