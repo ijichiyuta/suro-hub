@@ -1,0 +1,7 @@
+# Cloudflare Pages 用ヘッダ。
+#   sw.js は常に最新を取得させる(キャッシュさせない)。これがないとSW更新が最大4時間伝播せず、
+#   古いService Workerが古い画面を配信し続ける問題が起きる。
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+/manifest.webmanifest
+  Cache-Control: no-cache
