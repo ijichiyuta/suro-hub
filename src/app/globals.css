@@ -190,12 +190,28 @@ button { font-family: inherit; cursor: pointer; }
 
 /* 認証画面: 左=説明パネル / 右=フォーム(PC2カラム・スマホ1カラム) */
 .auth-split { display: flex; min-height: 100%; width: 100%; }
-.auth-left { flex: 1.05; background: linear-gradient(150deg, #3f74ff 0%, #1f5eff 45%, #123a9e 100%); color: #fff; display: flex; flex-direction: column; justify-content: center; padding: 56px; gap: 24px; position: relative; overflow: hidden; }
+.auth-left { flex: 1.05; background: #0e1526; color: #fff; display: flex; flex-direction: column; justify-content: center; padding: 56px; gap: 24px; position: relative; overflow: hidden; }
 .auth-right { width: 468px; max-width: 100%; background: #fff; display: flex; flex-direction: column; justify-content: center; padding: 44px 40px; overflow-y: auto; }
 @media (max-width: 860px) {
   .auth-split { flex-direction: column; }
   .auth-left { display: none; }
   .auth-right { width: 100%; flex: 1; padding: 30px 20px; justify-content: flex-start; padding-top: 40px; }
 }
+
+/* 日本語の文字組み(出典 yuheiy.com): 見出し/リードは文節区切り+詰めで折り返しを整える。本文はベタ組みのため触らない。
+   word-break:auto-phrase 非対応ブラウザは無視されるだけ(プログレッシブエンハンスメント)。 */
+h1, h2, h3, .lead, .balance {
+  font-feature-settings: "palt";
+  text-wrap: pretty;
+  word-break: auto-phrase;
+}
+/* 中央揃えの見出し(LPヒーロー等)は行長を均等化 */
+.balance { text-wrap: balance; }
+
+/* LP: 機種パネルの横スクロール(マーキー) */
+.marquee { overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.marquee-track { display: flex; gap: 20px; width: max-content; animation: marquee 48s linear infinite; }
+.marquee:hover .marquee-track { animation-play-state: paused; }
+@keyframes marquee { to { transform: translateX(-50%); } }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
