@@ -190,9 +190,9 @@ button { font-family: inherit; cursor: pointer; }
 
 /* 認証画面: 左=説明パネル / 右=フォーム(PC2カラム・スマホ1カラム) */
 .auth-split { display: flex; min-height: 100%; width: 100%; }
-.auth-left { flex: 1.05; background: #0e1526; color: #fff; display: flex; flex-direction: column; justify-content: center; padding: 56px; gap: 24px; position: relative; overflow: hidden; }
-.auth-right { width: 468px; max-width: 100%; background: #fff; display: flex; flex-direction: column; justify-content: center; padding: 44px 40px; overflow-y: auto; }
-@media (max-width: 860px) {
+.auth-left { flex: 1; max-width: 620px; background: #0e1526; color: #fff; display: flex; flex-direction: column; justify-content: space-between; gap: 40px; padding: clamp(44px, 5vw, 60px); position: relative; overflow: hidden; }
+.auth-right { width: 460px; max-width: 100%; background: #fff; display: flex; flex-direction: column; justify-content: center; padding: 44px clamp(36px, 4vw, 56px); overflow-y: auto; }
+@media (max-width: 900px) {
   .auth-split { flex-direction: column; }
   .auth-left { display: none; }
   .auth-right { width: 100%; flex: 1; padding: 30px 20px; justify-content: flex-start; padding-top: 40px; }

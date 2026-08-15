@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Star, Calculator } from "lucide-react";
+import { ChevronLeft, Star, Calculator } from "lucide-react";
 import { useFav } from "@/lib/favorites";
 import { pushRecent } from "@/lib/recent";
 import { useNote, setNote } from "@/lib/notes";
@@ -20,7 +20,7 @@ type Machine = {
 };
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
-const TABS = ["狙い目", "解析・設定", "大量集計", "コラム"] as const;
+const TABS = ["狙い目", "解析・設定", "大量集計"] as const;
 
 function Content({ html }: { html: string }) {
   return <div className="content" dangerouslySetInnerHTML={{ __html: html }} />;
@@ -66,7 +66,6 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
       .finally(() => setSpecLoading(false));
   }, [needData, specData, specLoading, m.id]);
 
-  const cols = m.lab?.columns || [];
   return (
     <>
       <header style={{ position: "sticky", top: 0, background: "#fff", zIndex: 20, borderBottom: "1px solid var(--border)" }}>
@@ -143,26 +142,11 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
           <>
             <h2 style={{ fontSize: 16, marginBottom: 10 }}>大量集計</h2>
             {!m.hasShukei
-              ? (cols.length
-                ? <Pending text="機種別の大量集計データは「コラム」タブの実践・考察記事にまとめています。" />
-                : <Pending text="大量集計データはありません。" />)
+              ? <Pending text="大量集計データはありません。" />
               : subLoading ? <Loading />
               : !premium ? <PaywallCard label="大量集計は会員限定です" />
               : specData ? (specData.shukei ? <Content html={specData.shukei} /> : <Pending text="集計データを読み込めませんでした。" />) : <Loading />}
           </>
-        )}
-        {tab === "コラム" && (
-          <div style={{ paddingTop: 2 }}>
-            {cols.length ? cols.map((c) => (
-              <div key={c.id} className="row">
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ display: "block", fontWeight: 700, fontSize: 14.5, lineHeight: 1.4 }}>{c.title}</span>
-                  <span style={{ display: "block", color: "var(--light)", fontSize: 12 }} className="num">{c.date}</span>
-                </span>
-                <ChevronRight className="chev" size={18} />
-              </div>
-            )) : <Pending text="関連コラムはありません。" />}
-          </div>
         )}
       </main>
     </>

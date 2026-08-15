@@ -8,6 +8,18 @@ import Landing from "./Landing";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
+// 収録機種のサムネイル(すろらぼ画像)。左パネルで網羅性を見せる素材。
+const MINI = [
+  "https://media.slolaboratory.com/wp-content/uploads/2025/12/25005811/ltensei-t.png",
+  "https://media.slolaboratory.com/wp-content/uploads/2026/03/29235119/lmilliomgod-t.png",
+  "https://slolaboratory.com/wp-content/uploads/2023/06/karakuri-t.png",
+  "https://slolaboratory.com/wp-content/uploads/2025/01/tghoul-t.png",
+  "https://slolaboratory.com/wp-content/uploads/2024/04/lseiya-t.png",
+  "https://slolaboratory.com/wp-content/uploads/2025/10/18183555/vvv2-t.png",
+  "https://slolaboratory.com/wp-content/uploads/2024/06/goder-t.png",
+];
+const hideOnError = (e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.visibility = "hidden"; };
+
 // Supabase 認証ゲート(公開登録・有料会員制)。ログイン中のみ子(アプリ)を表示。
 //   誰でも登録可(Google / メール+パスワード)。アプリ内で課金してプレミアムになると全コンテンツ閲覧可。
 //   未ログインは Landing(LP) を表示。
@@ -73,20 +85,34 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "#fff" }}>
       <div className="auth-split">
-        {/* 左: 説明パネル(PCのみ) */}
+        {/* 左: 説明パネル(PCのみ)。上=ブランド / 中=コピー+チェックリスト / 下=収録機種 で縦を埋める */}
         <div className="auth-left">
-          <div style={{ fontWeight: 800, fontSize: 20, letterSpacing: "-0.02em" }}>スマスマ期待値ラボ</div>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: "clamp(26px, 3vw, 34px)", lineHeight: 1.35, letterSpacing: "-0.02em" }}>打つ前に、勝てる台か<br />ひと目でわかる。</div>
-            <p style={{ marginTop: 16, fontSize: 15, lineHeight: 1.85, color: "rgba(255,255,255,0.9)", maxWidth: 430 }}>300機種以上の狙い目・期待値・解析を、1機種1ページに整理。ホールで開いてすぐ判断できる、あなた専用の期待値リファレンス。</p>
+          {/* アクセントは1点だけ(装飾過多を避ける) */}
+          <span aria-hidden style={{ position: "absolute", top: -140, right: -90, width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(43,108,255,0.4), transparent 70%)", pointerEvents: "none" }} />
+
+          <div style={{ position: "relative", fontWeight: 800, fontSize: 19, letterSpacing: "-0.02em" }}>スマスマ期待値ラボ</div>
+
+          <div style={{ position: "relative" }}>
+            <div className="balance" style={{ fontWeight: 800, fontSize: "clamp(27px, 3vw, 36px)", lineHeight: 1.32, letterSpacing: "-0.02em" }}>打つ前に、勝てる台か<br />ひと目でわかる。</div>
+            <p style={{ marginTop: 16, fontSize: 14.5, lineHeight: 1.85, color: "rgba(255,255,255,0.82)", maxWidth: 400 }}>スマスロ・スマパチ300機種以上の狙い目・期待値・解析を、1機種1ページに整理。ホールで開いてすぐ判断できます。</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 26 }}>
+              {["全機種の狙い目・期待値をフル表示", "解析・設定判別・大量集計データ", "期待値シミュレーター・稼働ロガー", "お気に入り・メモを端末間で同期"].map((t) => (
+                <div key={t} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600 }}>
+                  <span style={{ display: "inline-flex", width: 22, height: 22, borderRadius: "50%", background: "rgba(255,255,255,0.22)", alignItems: "center", justifyContent: "center", flex: "none" }}><Check size={14} /></span>
+                  {t}
+                </div>
+              ))}
+            </div>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 13, marginTop: 4 }}>
-            {["全機種の狙い目・期待値をフル表示", "解析・設定判別・大量集計データ", "期待値シミュレーター・稼働ロガー", "お気に入り・メモを端末間で同期"].map((t) => (
-              <div key={t} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600 }}>
-                <span style={{ display: "inline-flex", width: 22, height: 22, borderRadius: "50%", background: "rgba(255,255,255,0.22)", alignItems: "center", justifyContent: "center", flex: "none" }}><Check size={14} /></span>
-                {t}
-              </div>
-            ))}
+
+          <div style={{ position: "relative" }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.02em", marginBottom: 12 }}>北斗・ミリオンゴッド・カバネリなど話題の機種を収録</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {MINI.map((src) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={src} src={src} alt="" loading="lazy" onError={hideOnError} style={{ width: 46, height: 46, objectFit: "contain", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: 4, flex: "none" }} />
+              ))}
+            </div>
           </div>
         </div>
         {/* 右: 認証フォーム */}
