@@ -34,25 +34,36 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [busy, setBusy] = useState(false);
   const [showLogin, setShowLogin] = useState(false); // 未ログイン時: false=LP表示 / true=認証フォーム
   const [showEmail, setShowEmail] = useState(false); // Google主導。メールは「その他の方法」で展開
+  const [processing, setProcessing] = useState(false); // OAuthコールバック処理中(この間はLPを出さない)
 
   useEffect(() => {
     if (!supabase) { setReady(true); return; }
-    // OAuth 失敗のエラーをリダイレクトURLから拾って表示し、URLを掃除。
-    if (typeof window !== "undefined") {
-      const raw = (window.location.hash?.slice(1) || window.location.search?.slice(1) || "");
-      if (raw) {
-        const p = new URLSearchParams(raw);
-        const oerr = p.get("error_description") || p.get("error");
-        if (oerr) { setErr("ログインに失敗しました。時間をおいて再度お試しください。"); setShowLogin(true); window.history.replaceState(null, "", window.location.pathname); }
+    let cancelled = false;
+    // OAuthコールバック検知: PKCEは ?code=、implicit(旧)は #access_token=、失敗時は error=。
+    const loc = typeof window !== "undefined" ? window.location : null;
+    const params = new URLSearchParams((loc?.hash?.slice(1) || "") || (loc?.search?.slice(1) || ""));
+    const oerr = params.get("error_description") || params.get("error");
+    const isCallback = !!(params.get("code") || params.get("access_token") || oerr);
+    // 失敗コールバック: フォームにエラー表示＋URL掃除。成功コールバック: 処理中はスピナー(LPを出さない)。
+    if (oerr) { setErr("ログインに失敗しました。時間をおいて再度お試しください。"); setShowLogin(true); if (loc) window.history.replaceState(null, "", loc.pathname); }
+    else if (isCallback) setProcessing(true);
+
+    // detectSessionInUrl が code を交換し終えるのを getSession が待つ。完了後にURLを掃除。
+    supabase.auth.getSession().then(({ data }) => {
+      if (cancelled) return;
+      setSession(data.session); setReady(true);
+      if (isCallback && !oerr) {
+        setProcessing(false);
+        if (loc && (loc.search || loc.hash)) window.history.replaceState(null, "", loc.pathname); // 交換済みcode/tokenを除去(リロード再処理防止)
+        if (!data.session) { setShowLogin(true); setErr("ログインを完了できませんでした。もう一度お試しください。"); }
       }
-    }
-    supabase.auth.getSession().then(({ data }) => { setSession(data.session); setReady(true); });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => sub.subscription.unsubscribe();
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => { if (!cancelled) setSession(s); });
+    return () => { cancelled = true; sub.subscription.unsubscribe(); };
   }, []);
 
-  if (!ready) return null;
   if (session) return <>{children}</>;
+  if (!ready || processing) return <AuthSpinner />; // 初期化中/コールバック処理中はLPを出さない
   if (!showLogin) return <Landing onLogin={() => { setMode("login"); setShowLogin(true); }} onSignup={() => { setMode("signup"); setShowLogin(true); }} />;
 
   const submit = async (e: React.FormEvent) => {
@@ -184,6 +195,16 @@ function GoogleMark() {
       <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
       <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
     </svg>
+  );
+}
+
+// 初期化中/OAuthコールバック処理中の全画面ローディング(この間LPを出さない=ちらつき/誤バウンス防止)。
+function AuthSpinner() {
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
+      <span className="spin" style={{ width: 30, height: 30, borderRadius: "50%", border: "3px solid var(--border)", borderTopColor: "var(--blue)", display: "block" }} />
+      <span style={{ color: "var(--light)", fontSize: 13 }}>ログイン処理中…</span>
+    </div>
   );
 }
 
