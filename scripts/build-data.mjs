@@ -120,6 +120,30 @@ function internalizeLinks(html, maps) {
   return ($("body").html() || "").trim();
 }
 
+// ★ツールUI残骸の除去(表示直前の最終サニタイズ)。すろらぼの「期待値表検索ツール」枠・自動生成の目次ナビ
+//   (js-menu見出し/閉じるボタン/算出条件/狙い目リスト・やめどき注意リストの索引/ハイエナ見出し等)は
+//   stripCalc(#kitaichiCalculationTool2/#hosokuWrap)では拾いきれず本文冒頭に漏れる。ここでクラス/IDで一掃する。
+//   ※実本文の見出し(h3/h4)は残す。索引専用クラス(neraime-h4/index2)や.js-menu(ツール節見出し)のみ除去。
+function stripToolChrome(html) {
+  if (!html) return html;
+  html = html.replace(/<!--[\s\S]*?-->/g, ""); // コメントアウトされたツール雛形(js-menu等を内包)も除去
+  if (!/hyena|js-menu|class="close"|neraime-h4|neraimeIndex2|yamedokiIndex2|update-date|kitaichiCalculationTool2|hosokuWrap|columnIndex/.test(html)) return html;
+  const $ = loadHtml(html);
+  const removePair = ($e) => { const nx = $e.next(); if (nx && nx.length && /contents/.test(nx.attr("class") || "")) nx.remove(); $e.remove(); };
+  // js-menu2/3/4 = ツールのサブ節(算出条件/使い方 等) → 見出し+直後contentsを対で除去。
+  for (const e of $('[class*="js-menu2"], [class*="js-menu3"], [class*="js-menu4"]').toArray()) removePair($(e));
+  // 素の js-menu は「ツール見出し(期待値表検索ツール/更新情報/目次)」と「本文節見出し(狙い目/やめどき詳細/立ち回りポイント)」が
+  //   混在する。ツール名のものだけ対で除去し、本文節見出しは残す(＝本文を消さない)。
+  const TOOL = /期待値表検索ツール|算出条件|使い方|カウントツール|設定推測|更新情報|^目次$/;
+  for (const e of $(".js-menu").toArray()) { const $e = $(e); if (TOOL.test(($e.text() || "").replace(/\s+/g, ""))) removePair($e); }
+  // 明示的なゴミ: ハイエナ見出し/閉じるボタン/自動生成の目次索引(狙い目リスト・やめどき注意リスト)/ツールDOM。
+  $(".hyena, .close, .index2, .neraime-h4, .update-date, .update-date2, #neraimeIndex2, #yamedokiIndex2, #kitaichiCalculationTool2, #hosokuWrap, #condition, #columnIndex").remove();
+  // 空になった枠(contents/left等)・空要素を掃除。
+  for (const e of $('[class*="contents"]').toArray()) { const $e = $(e); if (!$e.text().trim() && !$e.find("table,img,li,iframe").length) $e.remove(); }
+  for (const e of $("div,p,section").toArray()) { const $e = $(e); if (!$e.text().trim() && !$e.find("table,img,br,iframe,ul,ol").length) $e.remove(); }
+  return ($("body").html() || "").trim();
+}
+
 // ★リライト検証(情報不変ゲート): 原文の数字が1つも欠落せず、捏造(原文に無い数字)も無いことを確認。
 // タグ＋HTML実体(&#8211;等)除去→整数ランのみ抽出。原文の「1.3.5.7周期」等のドット区切りを
 // 小数と誤読しないため \d+(整数ラン)で照合(小数24.2は両側とも24,2に割れるので判定は健全)。
@@ -301,7 +325,7 @@ for (const m of machines) {
     }
   }
   m.neraiRewritten = neraiRewritten;
-  m.nerai = nerai ? internalizeLinks(nerai, maps) : "";
+  m.nerai = nerai ? stripToolChrome(internalizeLinks(nerai, maps)) : "";
   if (m.ev?.spec) m.ev.spec = internalizeLinks(m.ev.spec, maps);
   if (m.lab) { if (m.lab.specHtml) m.lab.specHtml = internalizeLinks(m.lab.specHtml, maps); if (m.lab.shukeiHtml) m.lab.shukeiHtml = internalizeLinks(m.lab.shukeiHtml, maps); }
   if (m.specCombined) m.specCombined = internalizeLinks(m.specCombined, maps);
@@ -375,8 +399,8 @@ for (const m of machines) {
   if (m._neraiRaw && !m.neraiRewritten) { // 未リライト(or ゲート落ち)の狙い目をパイプライン用に保存
     fs.writeFileSync(path.join(NERAIRAW, m.id + ".json"), JSON.stringify({ name: m.name, source: m.neraiSource, nerai: m._neraiRaw })); neraiRawN++;
   }
-  const specHtml = m.specCombined || m.lab?.specHtml || m.ev?.spec || ""; // 解析タブの表示優先順を確定
-  const shukeiHtml = m.lab?.shukeiHtml || "";                              // 大量集計タブ
+  const specHtml = stripToolChrome(m.specCombined || m.lab?.specHtml || m.ev?.spec || ""); // 解析タブの表示優先順を確定
+  const shukeiHtml = stripToolChrome(m.lab?.shukeiHtml || "");             // 大量集計タブ
   // ★狙い目の表示ゲート: リライト済(情報不変ゲート通過)のみ表示。ev/lab問わず未リライトの原文コピーは
   //   表示しない=リライト完了まで「準備中」に留める(本人方針:元と同一文章NG)。ev更新で原文が変わり
   //   旧リライトがゲート落ちした機種も自動でここに入り、再リライトまで準備中となる。
