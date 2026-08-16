@@ -144,6 +144,15 @@ function stripToolChrome(html) {
   return ($("body").html() || "").trim();
 }
 
+// ★広い表(集計/解析)はモバイルでページ全体を横スクロールさせる原因になるため、各<table>を
+//   横スクロール枠<div class="tbl-scroll">で包む。表は枠内で横スクロール＝ページは横に動かない。
+function wrapTables(html) {
+  if (!html || !/<table/i.test(html)) return html;
+  const $ = loadHtml(html);
+  $("table").each((i, e) => { const $e = $(e); if (!$e.parent().hasClass("tbl-scroll")) $e.wrap('<div class="tbl-scroll"></div>'); });
+  return ($("body").html() || "").trim();
+}
+
 // ★リライト検証(情報不変ゲート): 原文の数字が1つも欠落せず、捏造(原文に無い数字)も無いことを確認。
 // タグ＋HTML実体(&#8211;等)除去→整数ランのみ抽出。原文の「1.3.5.7周期」等のドット区切りを
 // 小数と誤読しないため \d+(整数ラン)で照合(小数24.2は両側とも24,2に割れるので判定は健全)。
@@ -185,6 +194,13 @@ for (const d of dir) {
 }
 const dirInfo = (name) => dirByNorm.get(norm(name)) || dirByNorm.get(stripPre(norm(name))) || null;
 
+// ★新台バッジの鮮度: スロラボ「新台リスト」掲載でも、掲載日が古い(＝もう新台ではない)機種はバッジを外す。
+//   掲載から NEW_DAYS 日以内のみ新台扱い＝時間経過で自動的に外れる。data/new-days.json で日数を上書き可。
+let NEW_DAYS = 62;
+try { const n = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "new-days.json"), "utf-8")); if (Number.isFinite(n)) NEW_DAYS = n; } catch {}
+const nowMs = Date.now();
+const isRecentNew = (dateStr) => { const t = Date.parse((dateStr || "").slice(0, 10)); return !isNaN(t) && (nowMs - t) <= NEW_DAYS * 864e5; };
+
 // ラボ機種を基盤に unified を構築
 const unified = new Map(); // id -> machine
 for (const m of lab) {
@@ -194,7 +210,7 @@ for (const m of lab) {
   unified.set(id, {
     id, name: m.name, aliases: di ? di.aliases : [], maker: di ? di.maker : "",
     thumb: !badThumb(m.thumb) ? m.thumb : (di && !badThumb(di.th) ? di.th : ""),
-    isNew: !!m.isNew, sources: { lab: true, ev: false },
+    isNew: !!m.isNew && isRecentNew(m.date), date: (m.date || "").slice(0, 10), sources: { lab: true, ev: false },
     pop: m.count || 0, // 人気度=研究所の記事件数(実践/考察/設定判別 等の掲載数)。多い=よく打たれる注目機種。
     _labNerai: cleanPost(m.sections?.nerai, true), // 研究所の狙い目本文(計算ツールDOMは除去=iframe別表示)。ev無しの狙い目補完に使う。
     _shukeiRaw: buildShukeiRaw(m), // 大量集計復活対象のみ: コラム考察記事の集約(リライト素材)。非対象は空。
@@ -424,7 +440,7 @@ for (const m of machines) {
   if (m._neraiRaw && !m.neraiRewritten) { // 未リライト(or ゲート落ち)の狙い目をパイプライン用に保存
     fs.writeFileSync(path.join(NERAIRAW, m.id + ".json"), JSON.stringify({ name: m.name, source: m.neraiSource, nerai: m._neraiRaw })); neraiRawN++;
   }
-  const specHtml = stripToolChrome(m.specCombined || m.lab?.specHtml || m.ev?.spec || ""); // 解析タブの表示優先順を確定
+  const specHtml = wrapTables(stripToolChrome(m.specCombined || m.lab?.specHtml || m.ev?.spec || "")); // 解析タブの表示優先順を確定
   // 大量集計タブ: 復活対象はコラム考察を集約(_shukeiRaw)→リライト済のみ表示、未リライトはパイプラインへ。
   //   非対象は既存lab.shukeiHtml(多くは見出しのみ)を使い、実テキストが乏しければ空扱い=「データはありません」。
   let shukeiHtml = "";
@@ -435,16 +451,16 @@ for (const m of machines) {
       const rw = JSON.parse(fs.readFileSync(rwFile, "utf-8"));
       if (rw.shukei) { const v = verifyRewrite(m._shukeiRaw, rw.shukei); if (v.ok) skRewritten = rw.shukei; }
     }
-    if (skRewritten) { shukeiHtml = stripToolChrome(internalizeLinks(skRewritten, maps)); shukeiOkN++; }
+    if (skRewritten) { shukeiHtml = wrapTables(stripToolChrome(internalizeLinks(skRewritten, maps))); shukeiOkN++; }
     else { fs.writeFileSync(path.join(SHUKEIRAW, m.id + ".json"), JSON.stringify({ name: m.name, shukei: m._shukeiRaw })); shukeiRawN++; }
   } else {
-    const h = stripToolChrome(m.lab?.shukeiHtml || "");
+    const h = wrapTables(stripToolChrome(m.lab?.shukeiHtml || ""));
     if (h.replace(/<[^>]+>/g, "").trim().length >= 40) shukeiHtml = h;
   }
   // ★狙い目の表示ゲート: リライト済(情報不変ゲート通過)のみ表示。ev/lab問わず未リライトの原文コピーは
   //   表示しない=リライト完了まで「準備中」に留める(本人方針:元と同一文章NG)。ev更新で原文が変わり
   //   旧リライトがゲート落ちした機種も自動でここに入り、再リライトまで準備中となる。
-  const neraiFull = m.neraiRewritten ? m.nerai : "";
+  const neraiFull = m.neraiRewritten ? wrapTables(m.nerai) : "";
   // ★有料コンテンツ(狙い目全文/解析/集計)は遅延読込ファイルへ分離し、Cloudflare Pages Functionで会員(premium)限定配信。
   //   機種JSON(公開HTML)には冒頭teaser(無料プレビュー)のみ残す=未ログインで全文が読めないようにする。
   if (specHtml || shukeiHtml || neraiFull) {
