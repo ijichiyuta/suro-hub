@@ -14,7 +14,7 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   apiVersion: "2024-12-18.acacia",
   httpClient: Stripe.createFetchHttpClient(),
 });
-const SITE_URL = (Deno.env.get("SITE_URL") || "https://ijichiyuta.github.io/suro-hub/").replace(/\/?$/, "/");
+const SITE_URL = (Deno.env.get("SITE_URL") || "https://smasuro-lab.com/").replace(/\/?$/, "/");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

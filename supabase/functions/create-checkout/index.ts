@@ -20,7 +20,7 @@ const PRICES: Record<string, string | undefined> = {
   yearly: Deno.env.get("STRIPE_PRICE_YEARLY"),
 };
 // 末尾スラッシュを保証(trailingSlash構成のサイト)
-const SITE_URL = (Deno.env.get("SITE_URL") || "https://ijichiyuta.github.io/suro-hub/").replace(/\/?$/, "/");
+const SITE_URL = (Deno.env.get("SITE_URL") || "https://smasuro-lab.com/").replace(/\/?$/, "/");
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
