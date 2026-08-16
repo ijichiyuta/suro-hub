@@ -1,0 +1,36 @@
+# 旧GitHub Pages(ijichiyuta.github.io/suro-hub)を新ドメイン smasuro-lab.com へ転送する専用デプロイ。
+#   本番配信はCloudflare Pages(pages.yml)。こちらは「移転済みの転送スタブ」だけをPagesへ載せて、
+#   古いブックマーク/ホーム画面PWAを確実に新サイトへ逃がす(旧ServiceWorker解除も実施)。
+name: Deploy GitHub Pages redirect
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ghpages-redirect/**"
+      - ".github/workflows/ghpages-redirect.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ghpages-redirect
+      - id: deployment
+        uses: actions/deploy-pages@v4
