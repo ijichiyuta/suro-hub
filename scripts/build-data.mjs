@@ -156,6 +156,26 @@ function verifyRewrite(orig, rw) {
 }
 const REWRITES = path.join(ROOT, "data", "rewrites");
 
+// ★大量集計(考察データ)復活: data/shukei-restore.json(機種名の配列)の機種のみ、コラム記事(otherIds)から
+//   機種特化の考察/集計記事を集約して「大量集計」タブの素材にする(座談会等の汎用・共有記事は除外)。
+//   情報不変リライト後のみ表示(狙い目/解析と同じゲート)。段階導入=リスト追加で対象を増やせる。
+let shukeiRestore = new Set();
+try { shukeiRestore = new Set(JSON.parse(fs.readFileSync(path.join(ROOT, "data", "shukei-restore.json"), "utf-8"))); } catch {}
+const SHUKEI_SKIP = /座談会|vol\.?\s*\d|ランキング|新台入替|まとめ記事/;
+function buildShukeiRaw(m) {
+  if (!shukeiRestore.has(m.name)) return "";
+  const parts = [];
+  for (const id of (m.otherIds || [])) {
+    const p = byPost[id]; if (!p) continue;
+    const title = decode((p.title.rendered || "").trim());
+    if (SHUKEI_SKIP.test(title.replace(/\s+/g, ""))) continue; // 汎用/共有記事は除外(機種特化の考察のみ)
+    const html = cleanPost(id, false);
+    if (!html || html.replace(/<[^>]+>/g, "").trim().length < 80) continue;
+    parts.push(`<h3>${title}</h3>\n${html}`);
+  }
+  return parts.join('\n<hr class="shukei-sep" />\n');
+}
+
 // 辞書: norm(任意名) -> {canon, aliases, maker, dirthumb}
 const dirByNorm = new Map();
 for (const d of dir) {
@@ -177,6 +197,7 @@ for (const m of lab) {
     isNew: !!m.isNew, sources: { lab: true, ev: false },
     pop: m.count || 0, // 人気度=研究所の記事件数(実践/考察/設定判別 等の掲載数)。多い=よく打たれる注目機種。
     _labNerai: cleanPost(m.sections?.nerai, true), // 研究所の狙い目本文(計算ツールDOMは除去=iframe別表示)。ev無しの狙い目補完に使う。
+    _shukeiRaw: buildShukeiRaw(m), // 大量集計復活対象のみ: コラム考察記事の集約(リライト素材)。非対象は空。
     lab: { specHtml: cleanPost(m.sections?.spec, false), shukeiHtml: cleanPost(m.sections?.shukei, false), columns: cols },
     ev: null,
     _norm: [norm(m.name), stripPre(norm(m.name))],
@@ -392,7 +413,11 @@ fs.mkdirSync(SPECRAW, { recursive: true });
 const NERAIRAW = path.join(ROOT, "data", "nerai-raw");
 fs.rmSync(NERAIRAW, { recursive: true, force: true });
 fs.mkdirSync(NERAIRAW, { recursive: true });
-let splitBytes = 0, splitCount = 0, neraiRawN = 0;
+// 大量集計リライトのパイプライン素材(集約済み生コラム・内部化前)。未リライトの復活対象機種のみ出力。
+const SHUKEIRAW = path.join(ROOT, "data", "shukei-raw");
+fs.rmSync(SHUKEIRAW, { recursive: true, force: true });
+fs.mkdirSync(SHUKEIRAW, { recursive: true });
+let splitBytes = 0, splitCount = 0, neraiRawN = 0, shukeiRawN = 0, shukeiOkN = 0;
 for (const m of machines) {
   if (!m.specCombined && (m.ev?.spec || m.lab?.specHtml)) // 未リライト機種の解析素材をパイプライン用に保存
     fs.writeFileSync(path.join(SPECRAW, m.id + ".json"), JSON.stringify({ name: m.name, ev: m.ev?.spec || "", lab: m.lab?.specHtml || "" }));
@@ -400,7 +425,22 @@ for (const m of machines) {
     fs.writeFileSync(path.join(NERAIRAW, m.id + ".json"), JSON.stringify({ name: m.name, source: m.neraiSource, nerai: m._neraiRaw })); neraiRawN++;
   }
   const specHtml = stripToolChrome(m.specCombined || m.lab?.specHtml || m.ev?.spec || ""); // 解析タブの表示優先順を確定
-  const shukeiHtml = stripToolChrome(m.lab?.shukeiHtml || "");             // 大量集計タブ
+  // 大量集計タブ: 復活対象はコラム考察を集約(_shukeiRaw)→リライト済のみ表示、未リライトはパイプラインへ。
+  //   非対象は既存lab.shukeiHtml(多くは見出しのみ)を使い、実テキストが乏しければ空扱い=「データはありません」。
+  let shukeiHtml = "";
+  if (m._shukeiRaw) {
+    const rwFile = path.join(REWRITES, m.id + ".json");
+    let skRewritten = "";
+    if (fs.existsSync(rwFile)) {
+      const rw = JSON.parse(fs.readFileSync(rwFile, "utf-8"));
+      if (rw.shukei) { const v = verifyRewrite(m._shukeiRaw, rw.shukei); if (v.ok) skRewritten = rw.shukei; }
+    }
+    if (skRewritten) { shukeiHtml = stripToolChrome(internalizeLinks(skRewritten, maps)); shukeiOkN++; }
+    else { fs.writeFileSync(path.join(SHUKEIRAW, m.id + ".json"), JSON.stringify({ name: m.name, shukei: m._shukeiRaw })); shukeiRawN++; }
+  } else {
+    const h = stripToolChrome(m.lab?.shukeiHtml || "");
+    if (h.replace(/<[^>]+>/g, "").trim().length >= 40) shukeiHtml = h;
+  }
   // ★狙い目の表示ゲート: リライト済(情報不変ゲート通過)のみ表示。ev/lab問わず未リライトの原文コピーは
   //   表示しない=リライト完了まで「準備中」に留める(本人方針:元と同一文章NG)。ev更新で原文が変わり
   //   旧リライトがゲート落ちした機種も自動でここに入り、再リライトまで準備中となる。
@@ -415,13 +455,14 @@ for (const m of machines) {
   m.hasSpec = !!specHtml; m.hasShukei = !!shukeiHtml; m.hasFullNerai = !!neraiFull;
   m.neraiTeaser = teaserOf(neraiFull); // 冒頭プレビュー(無料会員の一部表示・インライン)
   // 機種JSONから重いフィールド(狙い目全文/解析/集計)を除去(遅延取得へ)。teaserのみインライン維持。
-  const { _norm, _labNerai, _neraiRaw, _authoredNerai, _authoredSpec, _authoredShukei, nerai, specCombined, ...rest } = m;
+  const { _norm, _labNerai, _neraiRaw, _shukeiRaw, _authoredNerai, _authoredSpec, _authoredShukei, nerai, specCombined, ...rest } = m;
   if (rest.ev) { const { spec, nerai: _en, ...evLight } = rest.ev; rest.ev = evLight; }
   if (rest.lab) { const { specHtml: _s, shukeiHtml: _k, ...labLight } = rest.lab; rest.lab = labLight; }
   fs.writeFileSync(path.join(OUT, "machines", m.id + ".json"), JSON.stringify(rest));
 }
 console.log(`狙い目/解析/集計を分離(遅延読込): ${splitCount}機種 / ${(splitBytes / 1e6).toFixed(1)}MB → public/data/spec/`);
 console.log(`狙い目リライト待ち(nerai-raw): ${neraiRawN}機種`);
+console.log(`大量集計: リライト済 ${shukeiOkN} / リライト待ち(shukei-raw) ${shukeiRawN}機種`);
 
 console.log(`統合機種: ${machines.length}（両方:${machines.filter(m => m.sources.ev && m.sources.lab).length} / 研究所のみ:${machines.filter(m => m.sources.lab && !m.sources.ev).length} / 期待値のみ:${machines.filter(m => m.sources.ev && !m.sources.lab).length}）`);
 console.log(`期待値マッチ:${matched} / 新規追加:${added} / 記事ツール除外:${skipped}`);
