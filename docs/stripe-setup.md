@@ -1,5 +1,14 @@
 # Stripe決済セットアップ手順
 
+> ## ✅ 本番化 完了（2026-08-17）
+> - 本番アカウント: `acct_1U1knXB93RuUW3DI`（charges_enabled=true）※テストは別サンドボックス`acct_1U1knd…`
+> - 本番価格: 月¥780 `price_1U5Jt1B93RuUW3DITaEmmSEb` / 年¥5,980 `price_1U5Jt1B93RuUW3DI4sbhOX2E`（重複は無効化済）
+> - 本番Webhook: `we_1U5K19B93RuUW3DI5AVZLqFr` / カスタマーポータル: `bpc_1U5K2Z…`
+> - Supabaseシークレット（sk_live_ / 価格 / whsec_ / SITE_URL）差し替え＆3関数再デプロイ済
+> - 実カードで通しテスト成功（購入→premium→解約→free→全額返金）。**現在、実課金で稼働中。**
+> - シークレット値はこのファイルには書かない（Supabase secretsのみ保持）。
+
+
 サブスク（月額¥780 / 年額¥5,980）をStripeで受け付けるための設定。コードは実装済み（`supabase/functions/*`・`src/lib/checkout.ts`・`/upgrade`）。あとはアカウント作成と鍵の設定だけ。
 
 ## 全体像
