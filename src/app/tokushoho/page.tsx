@@ -24,7 +24,7 @@ export default function Tokushoho() {
         <dd>ご請求があった場合、遅滞なく開示します。（お問い合わせは下記メールにて承ります）</dd>
 
         <dt>メールアドレス</dt>
-        <dd>ijichiyuuta.adit@gmail.com</dd>
+        <dd>info@smcn-jp.com</dd>
 
         <dt>販売価格</dt>
         <dd>プレミアム会員：月額 {yen(PRICE_MONTHLY)}（税込）／年額 {yen(PRICE_YEARLY)}（税込）。無料会員は一部機能のみ利用可。</dd>
