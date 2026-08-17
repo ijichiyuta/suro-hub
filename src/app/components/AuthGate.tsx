@@ -35,6 +35,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [showLogin, setShowLogin] = useState(false); // 未ログイン時: false=LP表示 / true=認証フォーム
   const [showEmail, setShowEmail] = useState(false); // Google主導。メールは「その他の方法」で展開
   const [processing, setProcessing] = useState(false); // OAuthコールバック処理中(この間はLPを出さない)
+  const [recovery, setRecovery] = useState(false); // パスワード再設定モード(リセットメールのリンクから復帰)
+  const [newPw, setNewPw] = useState(""); // 再設定用の新しいパスワード
+  const [needConfirm, setNeedConfirm] = useState(false); // ログイン失敗がメール未確認由来のとき、再送ボタンを出す
 
   useEffect(() => {
     if (!supabase) { setReady(true); return; }
@@ -44,8 +47,11 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     const params = new URLSearchParams((loc?.hash?.slice(1) || "") || (loc?.search?.slice(1) || ""));
     const oerr = params.get("error_description") || params.get("error");
     const isCallback = !!(params.get("code") || params.get("access_token") || oerr);
+    // リカバリ(パスワード再設定)コールバック検知: メール内リンクに type=recovery が付く(hash/query どちらも考慮)。
+    const isRecovery = params.get("type") === "recovery";
     // 失敗コールバック: フォームにエラー表示＋URL掃除。成功コールバック: 処理中はスピナー(LPを出さない)。
     if (oerr) { setErr("ログインに失敗しました。時間をおいて再度お試しください。"); setShowLogin(true); if (loc) window.history.replaceState(null, "", loc.pathname); }
+    else if (isRecovery) { setRecovery(true); setShowLogin(true); } // フォールバック: onAuthStateChange(PASSWORD_RECOVERY)前でも再設定フォームを表示
     else if (isCallback) setProcessing(true);
 
     // detectSessionInUrl が code を交換し終えるのを getSession が待つ。完了後にURLを掃除。
@@ -58,20 +64,28 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         if (!data.session) { setShowLogin(true); setErr("ログインを完了できませんでした。もう一度お試しください。"); }
       }
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => { if (!cancelled) setSession(s); });
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      if (cancelled) return;
+      // パスワード再設定リンク経由: 一時セッションが張られ PASSWORD_RECOVERY が飛ぶ。再設定フォームへ切替(URLも掃除)。
+      if (event === "PASSWORD_RECOVERY") {
+        setProcessing(false); setRecovery(true); setShowLogin(true); setErr(""); setNotice("");
+        if (loc && (loc.search || loc.hash)) window.history.replaceState(null, "", loc.pathname);
+      }
+      setSession(s);
+    });
     return () => { cancelled = true; sub.subscription.unsubscribe(); };
   }, []);
 
-  if (session) return <>{children}</>;
+  if (session && !recovery) return <>{children}</>; // 再設定中はセッションがあってもアプリを出さず、まず新パスワード設定
   if (!ready || processing) return <AuthSpinner />; // 初期化中/コールバック処理中はLPを出さない
-  if (!showLogin) return <Landing onLogin={() => { setMode("login"); setShowLogin(true); }} onSignup={() => { setMode("signup"); setShowLogin(true); }} />;
+  if (!recovery && !showLogin) return <Landing onLogin={() => { setMode("login"); setShowLogin(true); }} onSignup={() => { setMode("signup"); setShowLogin(true); }} />;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase) return;
-    setErr(""); setNotice(""); setBusy(true);
+    setErr(""); setNotice(""); setNeedConfirm(false); setBusy(true);
     if (mode === "signup") {
-      if (pw.length < 4) { setErr("パスワードは4文字以上で入力してください。"); setBusy(false); return; }
+      if (pw.length < 8) { setErr("パスワードは8文字以上で入力してください。"); setBusy(false); return; }
       const { data, error } = await supabase.auth.signUp({ email: email.trim(), password: pw });
       setBusy(false);
       if (error) { setErr(/registered|already/i.test(error.message) ? "このメールアドレスは登録済みです。ログインしてください。" : "登録できませんでした。時間をおいて再度お試しください。"); return; }
@@ -80,8 +94,54 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: pw });
       setBusy(false);
-      if (error) setErr("メールアドレスまたはパスワードが正しくありません。");
+      if (error) {
+        // メール未確認: 確認リンク未クリックのユーザー。案内＋再送ボタンを出す(それ以外は従来通り)。
+        const code = (error as { code?: string }).code;
+        if (code === "email_not_confirmed" || /email not confirmed|confirm/i.test(error.message)) {
+          setNeedConfirm(true);
+          setErr("メールアドレスが未確認です。確認メールのリンクを開いてください。");
+        } else {
+          setErr("メールアドレスまたはパスワードが正しくありません。");
+        }
+      }
     }
+  };
+
+  // パスワード再設定: リカバリセッション下で新しいパスワードを確定。成功でそのままアプリへ(session維持)。
+  const updatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase) return;
+    setErr(""); setNotice("");
+    if (newPw.length < 8) { setErr("パスワードは8文字以上で入力してください。"); return; }
+    setBusy(true);
+    const { error } = await supabase.auth.updateUser({ password: newPw });
+    setBusy(false);
+    if (error) { setErr("パスワードを変更できませんでした。時間をおいて再度お試しください。"); return; }
+    setNewPw(""); setNotice("パスワードを変更しました。");
+    setRecovery(false); // recovery解除 → session があればアプリ表示へ
+  };
+
+  // 確認メールの再送(signup)。未確認ログイン時／登録直後どちらからも呼べる。
+  const resendConfirm = async () => {
+    if (!supabase) return;
+    if (!email.trim()) { setErr("メールアドレスを入力してください。"); return; }
+    setErr(""); setBusy(true);
+    const { error } = await supabase.auth.resend({ type: "signup", email: email.trim() });
+    setBusy(false);
+    if (error) { setErr("再送できませんでした。時間をおいて再度お試しください。"); return; }
+    setNotice("確認メールを再送しました。メールをご確認ください。");
+  };
+
+  // パスワード再設定メールの送信。入力中のメール宛にリセットリンクを送る。
+  const sendReset = async () => {
+    if (!supabase) return;
+    if (!email.trim()) { setErr("メールアドレスを入力してください。"); return; }
+    setErr(""); setNotice(""); setBusy(true);
+    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}${BASE}/` : undefined;
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+    setBusy(false);
+    if (error) { setErr("再設定メールを送信できませんでした。時間をおいて再度お試しください。"); return; }
+    setNotice("再設定用のメールを送信しました。メール内のリンクからパスワードを再設定してください。");
   };
 
   const google = async () => {
@@ -128,8 +188,25 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         </div>
         {/* 右: 認証フォーム */}
         <div className="auth-right">
+          {recovery ? (
+          // パスワード再設定モード: リセットメールのリンクから復帰したとき。新しいパスワードを設定する。
           <div style={{ width: "100%", maxWidth: 360, margin: "0 auto" }}>
-            <button onClick={() => { setShowLogin(false); setErr(""); setNotice(""); }} style={{ background: "none", border: "none", color: "var(--sub)", fontSize: 13, padding: 0, marginBottom: 22, cursor: "pointer" }}>← 戻る</button>
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em" }}>新しいパスワードを設定</div>
+              <div style={{ color: "var(--light)", fontSize: 13, marginTop: 6 }}>新しいパスワードを入力してください。</div>
+            </div>
+            {err && <p style={{ color: "#e5484d", fontSize: 12.5, textAlign: "center", marginTop: 14, marginBottom: 0 }}>{err}</p>}
+            {notice && <p style={{ color: "var(--green)", fontSize: 12.5, textAlign: "center", marginTop: 14, marginBottom: 0, fontWeight: 700 }}>{notice}</p>}
+            <form onSubmit={updatePassword} style={{ marginTop: 18 }}>
+              <input type="password" autoComplete="new-password" required value={newPw} onChange={(e) => setNewPw(e.target.value)} style={inputStyle} placeholder="新しいパスワード（8文字以上）" />
+              <button type="submit" disabled={busy} className="btn" style={{ width: "100%", justifyContent: "center", marginTop: 14, opacity: busy ? 0.6 : 1 }}>
+                {busy ? "処理中…" : "パスワードを変更"}
+              </button>
+            </form>
+          </div>
+          ) : (
+          <div style={{ width: "100%", maxWidth: 360, margin: "0 auto" }}>
+            <button onClick={() => { setShowLogin(false); setErr(""); setNotice(""); setNeedConfirm(false); }} style={{ background: "none", border: "none", color: "var(--sub)", fontSize: 13, padding: 0, marginBottom: 22, cursor: "pointer" }}>← 戻る</button>
             <div style={{ marginBottom: 24 }}>
               <div style={{ fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em" }}>{isSignup ? "アカウント作成" : "ログイン"}</div>
               <div style={{ color: "var(--light)", fontSize: 13, marginTop: 6 }}>{isSignup ? "無料で登録して始めましょう。" : "スマスマ期待値ラボへようこそ。"}</div>
@@ -143,6 +220,14 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
         {err && <p style={{ color: "#e5484d", fontSize: 12.5, textAlign: "center", marginTop: 14, marginBottom: 0 }}>{err}</p>}
         {notice && <p style={{ color: "var(--green)", fontSize: 12.5, textAlign: "center", marginTop: 14, marginBottom: 0, fontWeight: 700 }}>{notice}</p>}
+
+        {needConfirm && (
+          // メール未確認でログイン失敗したとき: 確認メールを再送するボタン。
+          <button type="button" onClick={resendConfirm} disabled={busy}
+            style={{ width: "100%", background: "none", border: "1px solid var(--border)", borderRadius: "var(--radius)", color: "var(--ink)", fontSize: 13, fontWeight: 700, marginTop: 12, cursor: "pointer", padding: "10px 6px", opacity: busy ? 0.6 : 1 }}>
+            確認メールを再送
+          </button>
+        )}
 
         {!showEmail ? (
           <button type="button" onClick={() => { setShowEmail(true); setErr(""); setNotice(""); }}
@@ -158,14 +243,29 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
             </div>
             <form onSubmit={submit}>
               <input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} placeholder="メールアドレス" />
-              <input type="password" autoComplete={isSignup ? "new-password" : "current-password"} required value={pw} onChange={(e) => setPw(e.target.value)} style={{ ...inputStyle, marginTop: 10 }} placeholder={isSignup ? "パスワード（4文字以上）" : "パスワード"} />
+              <input type="password" autoComplete={isSignup ? "new-password" : "current-password"} required value={pw} onChange={(e) => setPw(e.target.value)} style={{ ...inputStyle, marginTop: 10 }} placeholder={isSignup ? "パスワード（8文字以上）" : "パスワード"} />
               <button type="submit" disabled={busy} className="btn" style={{ width: "100%", justifyContent: "center", marginTop: 14, opacity: busy ? 0.6 : 1 }}>
                 {busy ? "処理中…" : isSignup ? "メールで登録" : "ログイン"}
               </button>
             </form>
+            {!isSignup && (
+              // パスワードをお忘れの方: 入力中のメール宛に再設定リンクを送信。
+              <button type="button" onClick={sendReset} disabled={busy} style={{ display: "block", width: "100%", background: "none", border: "none", color: "var(--sub)", fontSize: 12, textAlign: "center", marginTop: 12, cursor: "pointer", padding: 0, opacity: busy ? 0.6 : 1 }}>
+                パスワードをお忘れですか？
+              </button>
+            )}
+            {isSignup && notice && (
+              // 登録直後の案内(確認メール送信済み)の下に、迷惑メール注意＋再送導線を追加。
+              <div style={{ marginTop: 12, textAlign: "center" }}>
+                <p style={{ color: "var(--light)", fontSize: 11.5, lineHeight: 1.6, margin: 0 }}>迷惑メールもご確認ください。届かない場合は再送できます。</p>
+                <button type="button" onClick={resendConfirm} disabled={busy} style={{ background: "none", border: "none", color: "var(--blue)", fontWeight: 700, fontSize: 12.5, marginTop: 6, cursor: "pointer", padding: 0, opacity: busy ? 0.6 : 1 }}>
+                  確認メールを再送
+                </button>
+              </div>
+            )}
             <p style={{ color: "var(--sub)", fontSize: 12.5, textAlign: "center", marginTop: 16 }}>
               {isSignup ? "すでにアカウントをお持ちですか？ " : "アカウントをお持ちでない方は "}
-              <button onClick={() => { setMode(isSignup ? "login" : "signup"); setErr(""); setNotice(""); }} style={{ background: "none", border: "none", color: "var(--blue)", fontWeight: 700, fontSize: 12.5, cursor: "pointer", padding: 0 }}>
+              <button onClick={() => { setMode(isSignup ? "login" : "signup"); setErr(""); setNotice(""); setNeedConfirm(false); }} style={{ background: "none", border: "none", color: "var(--blue)", fontWeight: 700, fontSize: 12.5, cursor: "pointer", padding: 0 }}>
                 {isSignup ? "ログイン" : "新規登録"}
               </button>
             </p>
@@ -180,6 +280,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
               <Link href="/privacy" style={{ color: "var(--light)" }}>プライバシーポリシー</Link>
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>

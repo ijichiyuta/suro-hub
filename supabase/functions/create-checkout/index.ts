@@ -5,11 +5,18 @@
 import Stripe from "https://esm.sh/stripe@17.7.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+// CORS: 許可オリジンのみ反映(既定は本番オリジン)
+const ALLOWED_ORIGIN = "https://smasuro-lab.com";
+function corsHeadersFor(req: Request) {
+  const origin = req.headers.get("Origin");
+  const allow = origin === ALLOWED_ORIGIN ? origin : ALLOWED_ORIGIN;
+  return {
+    "Access-Control-Allow-Origin": allow,
+    "Vary": "Origin",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+}
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   apiVersion: "2024-12-18.acacia",
@@ -26,27 +33,27 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeadersFor(req), "Content-Type": "application/json" },
   });
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeadersFor(req) });
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json({ error: "ログインが必要です。" }, 401);
+    if (!authHeader) return json(req, { error: "ログインが必要です。" }, 401);
 
     // ユーザーのJWTで本人確認
     const asUser = createClient(SUPABASE_URL, ANON, { global: { headers: { Authorization: authHeader } } });
     const { data: { user } } = await asUser.auth.getUser();
-    if (!user) return json({ error: "ログインが必要です。" }, 401);
+    if (!user) return json(req, { error: "ログインが必要です。" }, 401);
 
     const { plan } = await req.json().catch(() => ({}));
     const price = PRICES[plan];
-    if (!price) return json({ error: "プランが不正です。" }, 400);
+    if (!price) return json(req, { error: "プランが不正です。" }, 400);
 
     // 既存のStripe顧客を再利用(無ければ作成してprofilesに保存)
     const admin = createClient(SUPABASE_URL, SERVICE);
@@ -65,6 +72,13 @@ Deno.serve(async (req) => {
       await admin.from("profiles").upsert({ user_id: user.id, stripe_customer_id: customerId }, { onConflict: "user_id" });
     }
 
+    // 二重購入防止: 既に有効なサブスク(active/trialing/past_due)があれば中断
+    const existing = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 5 });
+    const hasActive = existing.data.some(
+      (s) => s.status === "active" || s.status === "trialing" || s.status === "past_due",
+    );
+    if (hasActive) return json(req, { error: "すでにプレミアム会員です。" }, 409);
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
@@ -77,8 +91,9 @@ Deno.serve(async (req) => {
       allow_promotion_codes: true,
       locale: "ja",
     });
-    return json({ url: session.url });
+    return json(req, { url: session.url });
   } catch (e) {
-    return json({ error: String(e?.message || e) }, 500);
+    console.error(e);
+    return json(req, { error: "エラーが発生しました。時間をおいて再度お試しください。" }, 500);
   }
 });

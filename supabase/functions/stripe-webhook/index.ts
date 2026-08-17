@@ -19,6 +19,7 @@ async function setPlanByCustomer(customerId: string, plan: "premium" | "free", s
   if (sub) {
     patch.stripe_subscription_id = sub.id;
     patch.subscription_status = sub.status;
+    patch.cancel_at_period_end = sub.cancel_at_period_end ?? false;
     if (sub.current_period_end) patch.current_period_end = new Date(sub.current_period_end * 1000).toISOString();
   }
   await admin.from("profiles").update(patch).eq("stripe_customer_id", customerId);
@@ -31,7 +32,8 @@ Deno.serve(async (req) => {
   try {
     event = await stripe.webhooks.constructEventAsync(body, sig!, WH_SECRET, undefined, cryptoProvider);
   } catch (e) {
-    return new Response(`bad signature: ${e.message}`, { status: 400 });
+    console.error("signature verify failed:", e);
+    return new Response("webhook error", { status: 400 });
   }
 
   try {
@@ -54,8 +56,10 @@ Deno.serve(async (req) => {
       case "customer.subscription.created":
       case "customer.subscription.updated": {
         const sub = event.data.object;
-        const active = sub.status === "active" || sub.status === "trialing";
-        await setPlanByCustomer(sub.customer as string, active ? "premium" : "free", sub);
+        // premium扱い=active/trialing/past_due(past_dueは支払いリトライ中の猶予でロックしない)
+        // free扱い=canceled/unpaid/incomplete_expired/incomplete
+        const premium = sub.status === "active" || sub.status === "trialing" || sub.status === "past_due";
+        await setPlanByCustomer(sub.customer as string, premium ? "premium" : "free", sub);
         break;
       }
       case "customer.subscription.deleted": {
@@ -63,9 +67,22 @@ Deno.serve(async (req) => {
         await setPlanByCustomer(sub.customer as string, "free", sub);
         break;
       }
+      case "invoice.payment_failed": {
+        // 支払い失敗＝past_due相当。planはpremiumのまま維持(猶予)、状態のみ past_due に更新。
+        const inv = event.data.object;
+        const customerId = inv.customer as string;
+        if (customerId) {
+          await admin.from("profiles")
+            .update({ subscription_status: "past_due" })
+            .eq("stripe_customer_id", customerId);
+        }
+        console.error("invoice.payment_failed for customer:", customerId);
+        break;
+      }
     }
   } catch (e) {
-    return new Response(`handler error: ${e.message}`, { status: 500 });
+    console.error("handler error:", e);
+    return new Response("webhook error", { status: 500 });
   }
   return new Response(JSON.stringify({ received: true }), { headers: { "Content-Type": "application/json" } });
 });

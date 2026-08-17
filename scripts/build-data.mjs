@@ -408,12 +408,17 @@ function teaserOf(html) {
   if (!html) return "";
   const $ = loadHtml(html);
   const head = ($("h1,h2,h3").first().text() || "").replace(/\s+/g, " ").trim();
+  // ★露出抑制: 狙い目ボーダー表(table)が丸ごと漏れないよう、テキスト抽出前にtableを除去する。
+  //   併せて狙い目の索引リスト(狙い目/やめどきの表・箇条書き)もteaserには載せない=導入文のみ残す。
+  $("table, .tbl-scroll, ul, ol").remove();
   const body = $("body").text().replace(/\s+/g, " ").trim();
   if (!body) return "";
-  const lead = body.slice(0, 240);
+  // 導入文中心の短い抜粋(約120字)。テーブル由来の具体的ボーダー数値の羅列は上で除去済み。
+  const lead = body.slice(0, 120);
   const parts = [];
   if (head && head.length <= 40 && !lead.startsWith(head)) parts.push(`<h3>${head}</h3>`);
-  parts.push(`<p>${lead}${body.length > 240 ? "…" : ""}</p>`);
+  // 「…」で締めて続きは会員限定であることを示す(120字未満でも文脈上の続きを示唆)。
+  parts.push(`<p>${lead}…</p>`);
   return parts.join("");
 }
 

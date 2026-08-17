@@ -1,12 +1,21 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Crown, LogOut, KeyRound, RefreshCw, Mail, Settings, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Crown, LogOut, KeyRound, RefreshCw, Mail, Settings, Check, Trash2 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { useSubscription } from "@/lib/subscription";
 import { BILLING_ENABLED } from "@/lib/billingConfig";
 import { openCustomerPortal } from "@/lib/checkout";
+import { SUPABASE_URL } from "@/lib/authConfig";
+
+// timestamptz → YYYY/MM/DD 表示。
+const fmtDate = (iso: string | null): string => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
+};
 
 const card: React.CSSProperties = { border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", marginBottom: 16 };
 const cardHead: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: "var(--sub)", padding: "13px 16px 3px" };
@@ -16,7 +25,7 @@ const topLine: React.CSSProperties = { borderTop: "1px solid var(--line)" };
 const label: React.CSSProperties = { flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700 };
 
 export default function Account() {
-  const { premium } = useSubscription();
+  const { premium, currentPeriodEnd, cancelAtPeriodEnd } = useSubscription();
   const [user, setUser] = useState<User | null>(null);
   const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState("");
@@ -43,12 +52,40 @@ export default function Account() {
   const changePw = async () => {
     if (!supabase) return;
     setErr(""); setMsg("");
-    if (pw.length < 4) { setErr("パスワードは4文字以上で入力してください。"); return; }
+    if (pw.length < 8) { setErr("パスワードは8文字以上で入力してください。"); return; }
     setBusy("pw");
     const { error } = await supabase.auth.updateUser({ password: pw });
     setBusy("");
     if (error) { setErr("変更できませんでした。時間をおいて再度お試しください。"); return; }
     setMsg("パスワードを変更しました。"); setPw(""); setPwOpen(false);
+  };
+
+  // 退会(アカウント削除)。二段確認 → Edge Function を Bearer トークンで叩く → サインアウトしてトップへ。
+  const deleteAccount = async () => {
+    if (!supabase) return;
+    setErr(""); setMsg("");
+    const email = user?.email || "";
+    if (!confirm("本当にアカウントを削除しますか？\nサブスクは解約され、お気に入り・稼働ログ・メモもすべて消えます。この操作は取り消せません。")) return;
+    const answer = prompt(email ? `確認のため、登録メールアドレス「${email}」を入力してください。` : "確認のため「削除」と入力してください。");
+    if (answer === null) return;
+    const ok = email ? answer.trim() === email : answer.trim() === "削除";
+    if (!ok) { setErr("入力が一致しませんでした。削除は中止しました。"); return; }
+    setBusy("delete");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("ログインが必要です。");
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/delete-account`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "エラーが発生しました。時間をおいて再度お試しください。");
+      await supabase.auth.signOut();
+      location.href = "/";
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : String(e)); setBusy("");
+    }
   };
 
   return (
@@ -91,8 +128,15 @@ export default function Account() {
             <span style={{ flex: 1 }}>
               <span style={{ display: "block", fontSize: 11, color: "var(--light)" }}>現在のプラン</span>
               <span style={{ display: "block", fontSize: 15, fontWeight: 700, color: premium ? "var(--blue)" : "var(--ink)" }}>{premium ? "プレミアム会員" : "無料会員"}</span>
+              {premium && currentPeriodEnd && (
+                cancelAtPeriodEnd ? (
+                  <span style={{ display: "block", fontSize: 11.5, color: "var(--sub)", marginTop: 2 }}>{fmtDate(currentPeriodEnd)} まで利用可能（更新停止手続き済み）</span>
+                ) : (
+                  <span style={{ display: "block", fontSize: 11.5, color: "var(--light)", marginTop: 2 }}>次回更新日: {fmtDate(currentPeriodEnd)}</span>
+                )
+              )}
             </span>
-            {premium && <span style={{ background: "var(--blue-tint)", color: "var(--blue)", fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 10 }}>有効</span>}
+            {premium && <span style={{ background: cancelAtPeriodEnd ? "var(--line)" : "var(--blue-tint)", color: cancelAtPeriodEnd ? "var(--sub)" : "var(--blue)", fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 10, flex: "none" }}>{cancelAtPeriodEnd ? "解約予約中" : "有効"}</span>}
           </div>
           {premium ? (
             BILLING_ENABLED && (
@@ -128,7 +172,7 @@ export default function Account() {
               </button>
               {pwOpen && (
                 <div style={{ padding: "0 16px 14px", display: "flex", gap: 8, alignItems: "center" }}>
-                  <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="新しいパスワード(4文字以上)"
+                  <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="新しいパスワード(8文字以上)"
                     style={{ flex: 1, height: 40, padding: "0 12px", fontSize: 14, border: "1px solid var(--border)", borderRadius: 6, outline: "none" }} />
                   <button onClick={changePw} disabled={busy === "pw"} className="btn" style={{ width: "auto", padding: "0 16px", height: 40, opacity: busy === "pw" ? 0.6 : 1 }}>{busy === "pw" ? "…" : "変更"}</button>
                 </div>
@@ -152,6 +196,17 @@ export default function Account() {
           <LogOut size={18} style={{ flex: "none" }} />
           <span style={label}>ログアウト</span>
         </button>
+
+        {/* 退会(アカウント削除) — 危険操作として控えめに配置 */}
+        <div style={{ marginTop: 8, marginBottom: 24 }}>
+          <button onClick={deleteAccount} disabled={busy === "delete"} style={{ display: "flex", alignItems: "center", gap: 7, background: "none", border: "none", cursor: "pointer", color: "var(--light)", fontSize: 12.5, padding: "6px 4px", opacity: busy === "delete" ? 0.6 : 1 }}>
+            <Trash2 size={15} style={{ flex: "none" }} />
+            <span>{busy === "delete" ? "削除しています…" : "アカウントを削除（退会）"}</span>
+          </button>
+          <p style={{ fontSize: 11, color: "var(--light)", margin: "4px 4px 0", lineHeight: 1.6 }}>
+            退会するとサブスクは解約され、お気に入り・稼働ログ・メモもすべて削除されます。この操作は取り消せません。
+          </p>
+        </div>
 
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center", fontSize: 12, paddingBottom: 40 }}>
           <Link href="/terms" style={{ color: "var(--light)" }}>利用規約</Link>

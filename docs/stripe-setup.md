@@ -85,7 +85,39 @@ Stripe → 設定 → Billing → カスタマーポータル → 有効化（�
 - テストモードのカード `4242 4242 4242 4242`（任意の将来日付・任意CVC）で購入 → `/upgrade?checkout=success` に戻る → 数秒後にプレミアム反映を確認。
 - 本番は Stripe を本番モードにし、`sk_live_...` / 本番Webhookの `whsec_...` / 本番の価格ID に差し替えて再デプロイ。
 
+## 8. 課金取りこぼしの手動リカバリ
+
+決済は成功したのにプレミアムが反映されない（Webhookの一時失敗・取りこぼし）場合の復旧手順。上から順に試す。
+
+### (a) まず Webhook を再送（推奨・冪等）
+1. Stripe Dashboard → 開発者（Developers）→ Webhooks → 該当エンドポイントを開く。
+2. 「イベント（Events）」タブ or ログから、当該顧客の該当イベント（`checkout.session.completed` / `customer.subscription.updated` 等）を選ぶ。
+3. 右上の「再送（Resend）」を押す → `stripe-webhook` が再処理する。
+   - 本ハンドラは冪等（同じ状態への更新は何度実行しても結果が同じ）なので、二重課金や副作用の心配なく再送してよい。
+
+### (b) 再送でも直らないとき: Supabase で直接更新（SQL Editor）
+`stripe_customer_id` を条件に profiles を手動でプレミアムへ引き上げる。
+```sql
+update public.profiles
+set plan = 'premium', subscription_status = 'active'
+where stripe_customer_id = 'cus_xxx';
+```
+※ `cus_xxx` は下記(c)で特定した実際の顧客IDに置き換える。反映はフロント次回読み込みで追従。
+
+### (c) 顧客ID（`cus_...`）の特定方法
+- Stripe Dashboard → 顧客（Customers）一覧でメールアドレス等から該当顧客を検索し、`cus_...` を控える。
+- または該当の Checkout Session / Subscription の `metadata.user_id`（＝SupabaseのauthユーザーID）から、`profiles` を逆引きして本人を特定する。
+  ```sql
+  -- user_id が分かっている場合の確認
+  select id, plan, stripe_customer_id, subscription_status from public.profiles where id = '<user_id>';
+  ```
+
+### (d) 再発防止: 失敗通知をONにする
+- Stripe Dashboard → 設定 → 通知（Notifications）で、「支払い失敗（failed payments）」と「Webhook配信失敗（webhook delivery failures）」のメール通知をONにしておく。取りこぼしに早く気づける。
+
+---
+
 ## メモ
-- 招待制なので、購入できるのは「ログイン済み＝招待された人」だけ（`create-checkout` が `getUser` で本人確認）。
+- 公開登録制（20歳以上なら誰でも登録可）。購入できるのは「ログイン済みの本人」だけ（`create-checkout` が `getUser` で本人確認）。
 - 返金/中途解約時の日割りは規約の方針（当方都合終了時は年額の未経過分を日割り返金）に合わせ、必要なら手動 or ポータルで対応。
 - `profiles.plan` は Webhook が唯一の“真実”として更新（フロントのキャッシュは次回読み込みで追従）。
