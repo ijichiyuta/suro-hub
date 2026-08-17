@@ -27,7 +27,10 @@ function deny(status) {
 export async function onRequest(context) {
   const { request, next } = context;
   const url = new URL(request.url);
-  if (!isProtected(url.pathname)) return next();
+  // ★パス正規化: 連続スラッシュ畳み込み+小文字化してから判定。
+  //   //data/spec/… や /DATA/SPEC/… 等で startsWith 判定を回避され、CDNが実ファイルを返す漏洩を塞ぐ。
+  const path = url.pathname.replace(/\/{2,}/g, "/").toLowerCase();
+  if (!isProtected(path)) return next();
 
   // トークン取得(cookie優先、無ければAuthorizationヘッダ)
   const cookie = request.headers.get("Cookie") || "";
