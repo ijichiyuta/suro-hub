@@ -25,6 +25,25 @@ async function setPlanByCustomer(customerId: string, plan: "premium" | "free", s
   await admin.from("profiles").update(patch).eq("stripe_customer_id", customerId);
 }
 
+// 友だち紹介の特典付与(被紹介者の初回課金時・一度きり・冪等)。
+//   紹介した人・された人の双方に ¥780 のStripeクレジット= 翌月分無料 を付与。referral_rewarded で二重付与防止。
+async function grantReferralReward(userId: string, refereeCustomerId: string) {
+  if (!userId) return;
+  const { data: me } = await admin.from("profiles").select("referred_by, referral_rewarded").eq("user_id", userId).maybeSingle();
+  if (!me || !me.referred_by || me.referral_rewarded) return; // 紹介経由でない or 既付与
+  // 先に rewarded=true を立てて二重付与を防止(条件付きUPDATE=1行取れた時だけ進む)
+  const { data: claimed } = await admin.from("profiles").update({ referral_rewarded: true })
+    .eq("user_id", userId).eq("referral_rewarded", false).select("user_id");
+  if (!claimed || !claimed.length) return;
+  const CREDIT = -780; // 次回請求から¥780割引(1ヶ月無料)
+  try { if (refereeCustomerId) await stripe.customers.createBalanceTransaction(refereeCustomerId, { amount: CREDIT, currency: "jpy", description: "友だち紹介特典（1ヶ月無料）" }); } catch (e) { console.error("referee credit:", e); }
+  const { data: ref } = await admin.from("profiles").select("stripe_customer_id, referral_count").eq("user_id", me.referred_by).maybeSingle();
+  if (ref) {
+    try { if (ref.stripe_customer_id) await stripe.customers.createBalanceTransaction(ref.stripe_customer_id, { amount: CREDIT, currency: "jpy", description: "友だち紹介特典（1ヶ月無料）" }); } catch (e) { console.error("referrer credit:", e); }
+    await admin.from("profiles").update({ referral_count: (ref.referral_count || 0) + 1 }).eq("user_id", me.referred_by);
+  }
+}
+
 Deno.serve(async (req) => {
   const sig = req.headers.get("stripe-signature");
   const body = await req.text();
@@ -48,6 +67,7 @@ Deno.serve(async (req) => {
             { user_id: userId, stripe_customer_id: customerId, plan: "premium" },
             { onConflict: "user_id" },
           );
+          await grantReferralReward(userId, customerId); // 紹介特典(初回課金時・一度きり)
         } else if (customerId) {
           await setPlanByCustomer(customerId, "premium");
         }

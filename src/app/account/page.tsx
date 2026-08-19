@@ -1,12 +1,13 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Crown, LogOut, KeyRound, RefreshCw, Mail, Settings, Check, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Crown, LogOut, KeyRound, RefreshCw, Mail, Settings, Check, Trash2, Gift, Copy } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { useSubscription } from "@/lib/subscription";
 import { BILLING_ENABLED } from "@/lib/billingConfig";
 import { openCustomerPortal } from "@/lib/checkout";
+import { fetchReferralInfo } from "@/lib/referral";
 import { SUPABASE_URL } from "@/lib/authConfig";
 
 // timestamptz → YYYY/MM/DD 表示。
@@ -32,6 +33,8 @@ export default function Account() {
   const [err, setErr] = useState("");
   const [pwOpen, setPwOpen] = useState(false);
   const [pw, setPw] = useState("");
+  const [ref, setRef] = useState<{ code: string; count: number } | null>(null);
+  const [refCopied, setRefCopied] = useState(false);
 
   useEffect(() => {
     if (!supabase) return;
@@ -39,6 +42,20 @@ export default function Account() {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setUser(s?.user ?? null));
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // 友だち紹介: 自分の紹介コードと紹介人数を取得（取得失敗時は控えめに非表示）。
+  useEffect(() => {
+    if (!supabase) return;
+    let alive = true;
+    fetchReferralInfo().then((d) => { if (alive) setRef(d); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  const refLink = ref ? `https://smasuro-lab.com/?ref=${ref.code}` : "";
+  const copyRefLink = async () => {
+    if (!refLink) return;
+    try { await navigator.clipboard.writeText(refLink); setRefCopied(true); setTimeout(() => setRefCopied(false), 1500); } catch {}
+  };
 
   const provider = (user?.app_metadata?.provider as string) || "email";
   const isEmail = provider === "email";
@@ -158,6 +175,35 @@ export default function Account() {
           <p style={{ fontSize: 11.5, color: "var(--light)", margin: "-6px 4px 16px", lineHeight: 1.6 }}>
             「サブスクの管理」から、解約・プラン変更・お支払い方法の更新・領収書の確認ができます（Stripeの安全な画面に移動します）。
           </p>
+        )}
+
+        {/* 友だち紹介 — 取得成功時のみ表示 */}
+        {ref && (
+          <>
+            <div style={card}>
+              <div style={cardHead}>友だち紹介</div>
+              <div style={{ padding: "10px 16px 4px" }}>
+                <span style={{ display: "block", fontSize: 11, color: "var(--light)", marginBottom: 6 }}>あなたの紹介リンク</span>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input readOnly value={refLink} onFocus={(e) => e.currentTarget.select()}
+                    style={{ flex: 1, minWidth: 0, height: 40, padding: "0 12px", fontSize: 13, border: "1px solid var(--border)", borderRadius: 6, outline: "none", background: "var(--bg-soft)", color: "var(--ink)" }} />
+                  <button onClick={copyRefLink} className="btn" style={{ width: "auto", padding: "0 14px", height: 40, display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
+                    {refCopied ? <><Check size={14} />コピー済</> : <><Copy size={14} />コピー</>}
+                  </button>
+                </div>
+              </div>
+              <div style={{ ...row, ...topLine, marginTop: 10 }}>
+                <Gift size={18} style={{ color: "var(--blue)", flex: "none" }} />
+                <span style={{ flex: 1 }}>
+                  <span style={{ display: "block", fontSize: 11, color: "var(--light)" }}>これまでの紹介</span>
+                  <span style={{ display: "block", fontSize: 15, fontWeight: 700 }}>{ref.count}人</span>
+                </span>
+              </div>
+            </div>
+            <p style={{ fontSize: 11.5, color: "var(--light)", margin: "-6px 4px 16px", lineHeight: 1.6 }}>
+              紹介した方・された方の双方に、紹介された方が課金したタイミングで1ヶ月分（¥780）が無料になります。
+            </p>
+          </>
         )}
 
         {/* 設定 */}

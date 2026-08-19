@@ -16,3 +16,7 @@ verify_jwt = false
 # 退会/アカウント削除。ユーザーJWTで呼び、関数内で getUser 本人確認→サブスク解約→データ削除→Auth削除。
 [functions.delete-account]
 verify_jwt = false
+
+# 友だち紹介。ユーザーJWTで呼び、関数内で getUser 本人確認→コード発行/紹介者紐付け。
+[functions.referral]
+verify_jwt = false

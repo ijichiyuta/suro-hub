@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { captureRefFromUrl, applyPendingRef } from "@/lib/referral";
 
 // Supabaseのアクセストークンを cookie "sblab" に同期。
 //   Cloudflare Pages Function(_middleware) が有料データ(/data/spec/*・/calc/*.html)の会員判定に使う。
@@ -18,9 +19,19 @@ function writeCookie(session: Session | null) {
 
 export default function AuthSync() {
   useEffect(() => {
+    // ランディング時に ?ref=CODE を localStorage へ退避（cookie 同期とは独立・必ず1回走る）。
+    captureRefFromUrl();
     if (!supabase) return;
     supabase.auth.getSession().then(({ data }) => writeCookie(data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => writeCookie(s));
+    // ログイン/登録が確立したら退避済みの紹介コードを1回だけ紐付け（重複呼び出し防止）。
+    let refApplied = false;
+    const { data: sub } = supabase.auth.onAuthStateChange((e, s) => {
+      writeCookie(s);
+      if (e === "SIGNED_IN" && s && !refApplied) {
+        refApplied = true;
+        applyPendingRef().catch(() => {});
+      }
+    });
     return () => sub.subscription.unsubscribe();
   }, []);
   return null;
