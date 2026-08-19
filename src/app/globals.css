@@ -107,6 +107,7 @@ button { font-family: inherit; cursor: pointer; }
 .badge { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 3px; background: var(--bg-soft); color: var(--sub); font-style: normal; letter-spacing: 0.02em; }
 .badge.blue { background: var(--blue-tint); color: var(--blue-dark); }
 .badge.new { background: var(--green-tint); color: var(--green); }
+.badge.free { background: var(--green); color: #fff; }
 
 /* ボタン（角ばり） */
 .btn {

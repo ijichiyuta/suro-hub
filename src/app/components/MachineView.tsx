@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ChevronLeft, Star, Calculator } from "lucide-react";
+import { ChevronLeft, Star, Calculator, Crown } from "lucide-react";
 import { useFav } from "@/lib/favorites";
 import { pushRecent } from "@/lib/recent";
 import { useNote, setNote } from "@/lib/notes";
@@ -13,7 +13,7 @@ type Col = { id: number; title: string; date: string };
 type Machine = {
   id: string; name: string; aliases: string[]; maker: string; thumb: string; isNew: boolean;
   hasCalc?: boolean; hasSpec?: boolean; hasShukei?: boolean; hasFullNerai?: boolean;
-  neraiTeaser?: string; neraiSource?: string;
+  neraiTeaser?: string; neraiSource?: string; freeSample?: boolean;
   sources: { ev: boolean; lab: boolean };
   lab: null | { columns: Col[] };
   ev: null | { slug: string; kdash: string | null };
@@ -45,12 +45,34 @@ function Pending({ text }: { text: string }) {
 function Loading() {
   return <p style={{ color: "var(--light)", padding: "16px 0", fontSize: 13 }}>読み込み中…</p>;
 }
+// 無料サンプル(味見)の帯: 非会員にも全文公開している機種であることを明示。
+function FreeSampleBanner() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--green-tint)", border: "1px solid var(--green)", color: "var(--green)", borderRadius: 8, padding: "9px 12px", fontSize: 12.5, fontWeight: 700, marginBottom: 12, lineHeight: 1.5 }}>
+      <i className="badge free">無料サンプル</i>
+      <span>この機種は登録なしで全内容を公開中です。</span>
+    </div>
+  );
+}
+// 無料サンプル閲覧中の非会員へ: 他機種も見るための会員登録CTA。
+function FreeSampleUpsell() {
+  return (
+    <div style={{ marginTop: 20, border: "1px solid var(--border)", borderRadius: 8, padding: "20px 18px", textAlign: "center", background: "var(--bg-soft)" }}>
+      <div style={{ fontWeight: 800, fontSize: 14.5, marginBottom: 4 }}>この続き、他の全機種でも。</div>
+      <div style={{ color: "var(--sub)", fontSize: 12.5, marginBottom: 14, lineHeight: 1.6 }}>プレミアム会員なら全機種の狙い目・解析・大量集計＋期待値計算ツールが使い放題です。</div>
+      <Link href="/upgrade" className="btn" style={{ justifyContent: "center" }}><Crown size={16} /> プレミアムにアップグレード</Link>
+    </div>
+  );
+}
 
 export default function MachineView({ machine: m }: { machine: Machine }) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("狙い目");
   const [calc, setCalc] = useState(false);
   const { fav, toggle } = useFav(m.id);
   const { premium, loading: subLoading } = useSubscription();  // free=一部プレビュー / premium=全表示
+  // 無料サンプル(味見): この機種は非会員でも狙い目/解析/集計を全文表示(計算ツールは会員限定のまま)。
+  const access = premium || !!m.freeSample;
+  const freeOpen = !premium && !!m.freeSample; // 非会員が味見で見ている状態
   useEffect(() => { pushRecent(m.id); }, [m.id]);
   const savedNote = useNote(m.id);
   const [noteDraft, setNoteDraft] = useState("");
@@ -60,12 +82,13 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
   //   プレミアムは機種を開いた時点でまとめて取得(狙い目=既定タブを速く出すため)。
   const [specData, setSpecData] = useState<{ nerai?: string; spec: string; shukei: string; neraiNav?: { label: string; id: string }[]; error?: boolean } | null>(null);
   const [specLoading, setSpecLoading] = useState(false);
-  const needData = premium && (m.hasFullNerai || m.hasSpec || m.hasShukei);
+  const needData = access && (m.hasFullNerai || m.hasSpec || m.hasShukei);
   useEffect(() => {
     if (!needData || specData || specLoading) return;
     setSpecLoading(true);
     (async () => {
-      // 保護されたデータなのでアクセストークンを付与(Cloudflare Functionが会員判定)。cookie競合を避け確実に。
+      // 保護データ(/data/spec)にアクセストークンを付与して取得(Cloudflare Functionが会員判定)。
+      //   無料サンプル機種は、非premiumでもログイン済みなら middleware が配信する(トークン必須)。
       let headers: Record<string, string> | undefined;
       try {
         const { data } = supabase ? await supabase.auth.getSession() : { data: { session: null } };
@@ -93,6 +116,7 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
             <span style={{ display: "block", fontWeight: 800, fontSize: 16, lineHeight: 1.25, letterSpacing: "-0.02em" }}>{m.name}</span>
             <span style={{ display: "flex", gap: 5, alignItems: "center", marginTop: 3, flexWrap: "wrap" }}>
               {m.isNew && <i className="badge new">新台</i>}
+              {m.freeSample && <i className="badge free">無料サンプル</i>}
               {m.maker && <span style={{ color: "var(--light)", fontSize: 12 }}>{m.maker}</span>}
             </span>
           </span>
@@ -121,14 +145,16 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
             <h2 style={{ fontSize: 16, marginBottom: 10 }}>狙い目・期待値</h2>
             {!m.hasFullNerai ? (
               <Pending text="この機種の狙い目データは準備中です。" />
-            ) : premium ? (
+            ) : access ? (
               <>
+                {freeOpen && <FreeSampleBanner />}
                 {/* 狙い目クイックナビ: タップでその狙い目(リセット/天井/ゾーン/やめどき等)へ即ジャンプ */}
                 {specData?.neraiNav && specData.neraiNav.length > 0 && <NeraiNav items={specData.neraiNav} />}
                 {/* 狙い目全文は保護ファイル(遅延)から取得。取得中は冒頭teaserを表示し全文へ差替(読み込み中テキストは出さない) */}
                 <Content html={specData?.nerai || m.neraiTeaser || ""} />
-                {/* 計算ボタンは全文表示後に出す=teaser→全文の高さ変化でボタンが飛ぶのを防ぐ */}
-                {m.hasCalc && specData && (calc ? (
+                {/* 計算ツールは会員限定(味見機種でも非会員には出さない=中身は/calcでmiddleware保護)。
+                    計算ボタンは全文表示後に出す=teaser→全文の高さ変化でボタンが飛ぶのを防ぐ */}
+                {m.hasCalc && premium && specData && (calc ? (
                   <div style={{ marginTop: 16 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                       <h3 style={{ fontSize: 15 }}>期待値計算ツール</h3>
@@ -139,6 +165,7 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
                 ) : (
                   <button className="btn" style={{ marginTop: 16 }} onClick={() => setCalc(true)}><Calculator size={18} /> 期待値を計算する</button>
                 ))}
+                {freeOpen && <FreeSampleUpsell />}
               </>
             ) : subLoading ? null : (
               <PaywallCard label="狙い目・期待値は会員限定です" />
@@ -150,8 +177,8 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
             <h2 style={{ fontSize: 16, marginBottom: 10 }}>解析・設定判別</h2>
             {!m.hasSpec ? <Pending text="解析データは準備中です。" />
               : subLoading ? <Loading />
-              : !premium ? <PaywallCard label="解析・設定は会員限定です" />
-              : specData ? (specData.spec ? <Content html={specData.spec} /> : <Pending text="解析データを読み込めませんでした。" />) : <Loading />}
+              : !access ? <PaywallCard label="解析・設定は会員限定です" />
+              : specData ? (specData.spec ? <><Content html={specData.spec} />{freeOpen && <FreeSampleUpsell />}</> : <Pending text="解析データを読み込めませんでした。" />) : <Loading />}
           </>
         )}
         {tab === "大量集計" && (
@@ -160,8 +187,8 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
             {!m.hasShukei
               ? <Pending text="大量集計データはありません。" />
               : subLoading ? <Loading />
-              : !premium ? <PaywallCard label="大量集計は会員限定です" />
-              : specData ? (specData.shukei ? <Content html={specData.shukei} /> : <Pending text="集計データを読み込めませんでした。" />) : <Loading />}
+              : !access ? <PaywallCard label="大量集計は会員限定です" />
+              : specData ? (specData.shukei ? <><Content html={specData.shukei} />{freeOpen && <FreeSampleUpsell />}</> : <Pending text="集計データを読み込めませんでした。" />) : <Loading />}
           </>
         )}
       </main>

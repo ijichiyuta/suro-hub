@@ -223,6 +223,18 @@ try { const n = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "new-days.jso
 const nowMs = Date.now();
 const isRecentNew = (dateStr) => { const t = Date.parse((dateStr || "").slice(0, 10)); return !isNaN(t) && (nowMs - t) <= NEW_DAYS * 864e5; };
 
+// ★無料サンプル(味見導線): data/free-samples.json(機種名の配列)の機種は、狙い目/解析/大量集計の
+//   全文を非会員にも公開する(公開ファイル public/data/free/<id>.json へ複製=middleware非保護)。数機種
+//   だけフル体験させて課金へつなぐ。他機種のデータ本体は保護のまま=この数機種のみ意図的に開放する。
+//   計算ツール(/calc/<id>.html)は会員限定を維持(build-calcが生成しmiddlewareで保護)。
+let freeSampleKeys = new Set();
+try {
+  const list = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "free-samples.json"), "utf-8"));
+  for (const nm of list) { const k = norm(nm); if (k) { freeSampleKeys.add(k); freeSampleKeys.add(stripPre(k)); } }
+  console.log(`無料サンプル対象: ${list.length}機種指定`);
+} catch {}
+const isFreeSample = (name) => { const k = norm(name); return freeSampleKeys.has(k) || freeSampleKeys.has(stripPre(k)); };
+
 // ラボ機種を基盤に unified を構築
 const unified = new Map(); // id -> machine
 for (const m of lab) {
@@ -315,6 +327,9 @@ if (fs.existsSync(AUTHORED)) {
 
 const popScore = (m) => (m.pop || 0) + (m.isNew ? 6 : 0);
 const machines = [...unified.values()].sort((a, b) => popScore(b) - popScore(a) || (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0) || a.name.localeCompare(b.name, "ja"));
+for (const m of machines) m.freeSample = isFreeSample(m.name); // 無料サンプル(味見)対象を印付け
+const freeHit = machines.filter((m) => m.freeSample);
+if (freeHit.length) console.log(`無料サンプル該当: ${freeHit.map((m) => m.name).join(" / ")}`);
 
 // ★重複検知(非破壊): 正規化キー(stripPre(norm(name)))が衝突する＝同一機種が2件に割れている可能性。
 //   月次更新でev/labの名称ゆらぎにより再発しうるため、ビルド毎に警告を出す。data/dedup-keep-separate.json
@@ -417,6 +432,7 @@ console.log(`内部記事: ${articles.length}（外部誘導リンクの内部�
 
 const index = machines.map((m) => ({
   id: m.id, name: m.name, maker: m.maker, thumb: m.thumb, isNew: m.isNew, pop: m.pop || 0,
+  ...(m.freeSample ? { freeSample: true } : {}),
   sources: m.sources, k: [...new Set([norm(m.name), ...m.aliases.map(norm)])].filter(Boolean).join(" "),
 }));
 fs.writeFileSync(path.join(OUT, "index.json"), JSON.stringify(index));
@@ -447,6 +463,9 @@ function teaserOf(html) {
 const SPECOUT = path.join(ROOT, "public", "data", "spec");
 fs.rmSync(SPECOUT, { recursive: true, force: true });
 fs.mkdirSync(SPECOUT, { recursive: true });
+// 旧: public/data/free(誰でも取得可)。方針=登録必須のため廃止。無料サンプルも /data/spec に置き、
+//   middleware が「無料サンプルID かつ ログイン済み」なら premium 不問で配信する(下でIDを注入)。
+fs.rmSync(path.join(ROOT, "public", "data", "free"), { recursive: true, force: true });
 // 解析リライトのパイプライン(spec-prep/apply)用に、内部化済みの生spec(ev/lab別)を退避(build専用/gitignore)。
 //   機種JSONからは重い生specを剥がすため、リライト対象(未specCombined)の素材をここに保持する。
 const SPECRAW = path.join(ROOT, "data", "spec-raw");
@@ -460,7 +479,7 @@ fs.mkdirSync(NERAIRAW, { recursive: true });
 const SHUKEIRAW = path.join(ROOT, "data", "shukei-raw");
 fs.rmSync(SHUKEIRAW, { recursive: true, force: true });
 fs.mkdirSync(SHUKEIRAW, { recursive: true });
-let splitBytes = 0, splitCount = 0, neraiRawN = 0, shukeiRawN = 0, shukeiOkN = 0;
+let splitBytes = 0, splitCount = 0, neraiRawN = 0, shukeiRawN = 0, shukeiOkN = 0, freeOutN = 0;
 for (const m of machines) {
   if (!m.specCombined && (m.ev?.spec || m.lab?.specHtml)) // 未リライト機種の解析素材をパイプライン用に保存
     fs.writeFileSync(path.join(SPECRAW, m.id + ".json"), JSON.stringify({ name: m.name, ev: m.ev?.spec || "", lab: m.lab?.specHtml || "" }));
@@ -495,6 +514,7 @@ for (const m of machines) {
   if (specHtml || shukeiHtml || neraiFull) {
     const payload = JSON.stringify({ nerai: neraiFull, spec: specHtml, shukei: shukeiHtml, neraiNav });
     fs.writeFileSync(path.join(SPECOUT, m.id + ".json"), payload);
+    if (m.freeSample) freeOutN++; // 味見=/data/spec のまま、middlewareでログイン済みに開放
     splitBytes += payload.length; splitCount++;
   }
   m.hasSpec = !!specHtml; m.hasShukei = !!shukeiHtml; m.hasFullNerai = !!neraiFull;
@@ -506,6 +526,19 @@ for (const m of machines) {
   fs.writeFileSync(path.join(OUT, "machines", m.id + ".json"), JSON.stringify(rest));
 }
 console.log(`狙い目/解析/集計を分離(遅延読込): ${splitCount}機種 / ${(splitBytes / 1e6).toFixed(1)}MB → public/data/spec/`);
+console.log(`無料サンプル(ログイン済みに開放): ${freeOutN}機種`);
+
+// ★無料サンプルIDを Cloudflare middleware(_middleware.js)へ注入(マーカー間を置換)。
+//   これらの /data/spec/<id>.json は premium でなくてもログイン済みなら配信される。
+const freeIds = machines.filter((m) => m.freeSample).map((m) => m.id);
+const MW = path.join(ROOT, "functions", "_middleware.js");
+try {
+  let mw = fs.readFileSync(MW, "utf-8");
+  const inject = freeIds.map((id) => JSON.stringify(id)).join(",");
+  const next = mw.replace(/\/\*FREE_SAMPLES_START\*\/[\s\S]*?\/\*FREE_SAMPLES_END\*\//, `/*FREE_SAMPLES_START*/${inject}/*FREE_SAMPLES_END*/`);
+  if (next !== mw) { fs.writeFileSync(MW, next); console.log(`middleware無料サンプルID注入: ${freeIds.length}件 [${freeIds.join(", ")}]`); }
+  else console.warn("⚠ middlewareにFREE_SAMPLESマーカーが見つからず注入をスキップ");
+} catch (e) { console.warn("⚠ middleware更新に失敗:", e.message); }
 console.log(`狙い目リライト待ち(nerai-raw): ${neraiRawN}機種`);
 console.log(`大量集計: リライト済 ${shukeiOkN} / リライト待ち(shukei-raw) ${shukeiRawN}機種`);
 

@@ -7,7 +7,7 @@ import AccountButton from "@/app/components/AccountButton";
 import { useFavIds, toggleFav } from "@/lib/favorites";
 import { useRecent } from "@/lib/recent";
 
-type M = { id: string; name: string; maker: string; thumb: string; isNew: boolean; sources: { ev: boolean; lab: boolean }; k: string };
+type M = { id: string; name: string; maker: string; thumb: string; isNew: boolean; freeSample?: boolean; sources: { ev: boolean; lab: boolean }; k: string };
 const ALL = INDEX as M[];
 
 const kana = (s: string) => s.replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
@@ -89,7 +89,7 @@ export default function Home() {
                 <img className="thumb" src={m.thumb} alt="" loading="lazy" />
               : <span className="thumb thumb-ph">🎰</span>}
             <span style={{ minWidth: 0, flex: 1 }}>
-              {m.isNew && <span style={{ display: "flex", gap: 5, alignItems: "center", marginBottom: 3 }}><i className="badge new">新台</i></span>}
+              {(m.isNew || m.freeSample) && <span style={{ display: "flex", gap: 5, alignItems: "center", marginBottom: 3 }}>{m.isNew && <i className="badge new">新台</i>}{m.freeSample && <i className="badge free">無料サンプル</i>}</span>}
               <span style={{ display: "block", fontWeight: 700, fontSize: 15, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</span>
               {m.maker && <span style={{ display: "block", color: "var(--light)", fontSize: 12 }}>{m.maker}</span>}
             </span>
