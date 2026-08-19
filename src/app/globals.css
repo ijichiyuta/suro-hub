@@ -164,6 +164,14 @@ button { font-family: inherit; cursor: pointer; }
 .content strong, .content b { font-weight: 700; }
 .content .num, .content table { font-variant-numeric: tabular-nums; }
 
+/* 狙い目クイックナビ(見出しジャンプのチップ) */
+.nerai-nav { display: flex; gap: 7px; overflow-x: auto; padding: 0 0 14px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.nerai-nav::-webkit-scrollbar { display: none; }
+.nerai-chip { flex: none; background: var(--bg-soft); color: var(--blue-dark); border: 1px solid var(--border); border-radius: 6px; padding: 8px 13px; font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer; touch-action: manipulation; }
+.nerai-chip:active { background: var(--blue); color: #fff; border-color: var(--blue); }
+/* ジャンプ先の見出しがヘッダー(機種名+タブ)で隠れないように */
+.content h2[id], .content h3[id] { scroll-margin-top: 104px; }
+
 /* ===== デスクトップ: 左サイドバー + 全幅メイン（余白の少ない本格UI） ===== */
 .sidebar { display: none; }
 @media (min-width: 900px) {

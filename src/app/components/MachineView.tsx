@@ -25,6 +25,20 @@ const TABS = ["狙い目", "解析・設定", "大量集計"] as const;
 function Content({ html }: { html: string }) {
   return <div className="content" dangerouslySetInnerHTML={{ __html: html }} />;
 }
+// 狙い目クイックナビ: 見出しへスクロールジャンプ(横スクロールのチップ)。「タップ→すぐ狙い目のゲーム数」用。
+function NeraiNav({ items }: { items: { label: string; id: string }[] }) {
+  const jump = (id: string) => {
+    const el = typeof document !== "undefined" ? document.getElementById(id) : null;
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  return (
+    <nav className="nerai-nav" aria-label="狙い目クイックナビ">
+      {items.map((it) => (
+        <button key={it.id} type="button" onClick={() => jump(it.id)} className="nerai-chip">{it.label}</button>
+      ))}
+    </nav>
+  );
+}
 function Pending({ text }: { text: string }) {
   return <p style={{ color: "var(--light)", padding: "16px 0", fontSize: 13 }}>{text}</p>;
 }
@@ -44,7 +58,7 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
   useEffect(() => { if (!noteFocus) setNoteDraft(savedNote); }, [savedNote, noteFocus]);
   // 狙い目全文・解析・集計は重いので遅延取得。無料会員はプレビュー(teaser)のみで取得しない=会員限定。
   //   プレミアムは機種を開いた時点でまとめて取得(狙い目=既定タブを速く出すため)。
-  const [specData, setSpecData] = useState<{ nerai?: string; spec: string; shukei: string; error?: boolean } | null>(null);
+  const [specData, setSpecData] = useState<{ nerai?: string; spec: string; shukei: string; neraiNav?: { label: string; id: string }[]; error?: boolean } | null>(null);
   const [specLoading, setSpecLoading] = useState(false);
   const needData = premium && (m.hasFullNerai || m.hasSpec || m.hasShukei);
   useEffect(() => {
@@ -109,6 +123,8 @@ export default function MachineView({ machine: m }: { machine: Machine }) {
               <Pending text="この機種の狙い目データは準備中です。" />
             ) : premium ? (
               <>
+                {/* 狙い目クイックナビ: タップでその狙い目(リセット/天井/ゾーン/やめどき等)へ即ジャンプ */}
+                {specData?.neraiNav && specData.neraiNav.length > 0 && <NeraiNav items={specData.neraiNav} />}
                 {/* 狙い目全文は保護ファイル(遅延)から取得。取得中は冒頭teaserを表示し全文へ差替(読み込み中テキストは出さない) */}
                 <Content html={specData?.nerai || m.neraiTeaser || ""} />
                 {/* 計算ボタンは全文表示後に出す=teaser→全文の高さ変化でボタンが飛ぶのを防ぐ */}

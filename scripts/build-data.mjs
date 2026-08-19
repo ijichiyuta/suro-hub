@@ -153,6 +153,28 @@ function wrapTables(html) {
   return ($("body").html() || "").trim();
 }
 
+// ★狙い目クイックナビ: 見出し(h2/h3)にidを付与し、[{label,id}]を返す。機種ページで「タップ→その狙い目へジャンプ」用。
+//   立ち回りで探す項目(リセット/天井/ゾーン/やめどき等)だけを拾う。番号付きサブ項目・汎用タイトルは除外。
+function buildNeraiNav(html) {
+  if (!html || !/<h[23]/i.test(html)) return { html, nav: [] };
+  const $ = loadHtml(html);
+  const KEY = /狙い|天井|ゾーン|やめ|ヤメ|リセット|周期|有利区間|打ち始め|打ち出し|示唆|ボーナス|CZ|前兆|モード|設定変更|即やめ|スルー|ハイエナ/;
+  const nav = []; let n = 0;
+  for (const e of $("h2, h3").toArray()) {
+    if (nav.length >= 10) break;
+    const $e = $(e);
+    const label = ($e.text() || "").replace(/\s+/g, " ").replace(/[📌💡🔥⭐️★✅➡️→◆●・]/g, "").trim();
+    if (!label || label.length > 20) continue;
+    if (/^\d+[.．、)]/.test(label)) continue;           // 「1. 基本ルール」等の番号付きサブは除外
+    if (label === "狙い目" || label === "狙い目・期待値" || label === "期待値表") continue; // 汎用は除外
+    if (!KEY.test(label)) continue;
+    const id = "nsec" + (n++);
+    $e.attr("id", id);
+    nav.push({ label, id });
+  }
+  return { html: ($("body").html() || "").trim(), nav };
+}
+
 // ★リライト検証(情報不変ゲート): 原文の数字が1つも欠落せず、捏造(原文に無い数字)も無いことを確認。
 // タグ＋HTML実体(&#8211;等)除去→整数ランのみ抽出。原文の「1.3.5.7周期」等のドット区切りを
 // 小数と誤読しないため \d+(整数ラン)で照合(小数24.2は両側とも24,2に割れるので判定は健全)。
@@ -465,11 +487,13 @@ for (const m of machines) {
   // ★狙い目の表示ゲート: リライト済(情報不変ゲート通過)のみ表示。ev/lab問わず未リライトの原文コピーは
   //   表示しない=リライト完了まで「準備中」に留める(本人方針:元と同一文章NG)。ev更新で原文が変わり
   //   旧リライトがゲート落ちした機種も自動でここに入り、再リライトまで準備中となる。
-  const neraiFull = m.neraiRewritten ? wrapTables(m.nerai) : "";
+  let neraiFull = m.neraiRewritten ? wrapTables(m.nerai) : "";
+  let neraiNav = [];
+  if (neraiFull) { const nv = buildNeraiNav(neraiFull); neraiFull = nv.html; neraiNav = nv.nav; } // 見出しにid付与+ナビ生成
   // ★有料コンテンツ(狙い目全文/解析/集計)は遅延読込ファイルへ分離し、Cloudflare Pages Functionで会員(premium)限定配信。
   //   機種JSON(公開HTML)には冒頭teaser(無料プレビュー)のみ残す=未ログインで全文が読めないようにする。
   if (specHtml || shukeiHtml || neraiFull) {
-    const payload = JSON.stringify({ nerai: neraiFull, spec: specHtml, shukei: shukeiHtml });
+    const payload = JSON.stringify({ nerai: neraiFull, spec: specHtml, shukei: shukeiHtml, neraiNav });
     fs.writeFileSync(path.join(SPECOUT, m.id + ".json"), payload);
     splitBytes += payload.length; splitCount++;
   }
