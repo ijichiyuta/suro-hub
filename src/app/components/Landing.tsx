@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { Target, BarChart3, Calculator, NotebookPen, RefreshCw, WifiOff, ArrowRight } from "lucide-react";
+import { Target, BarChart3, Calculator, NotebookPen, RefreshCw, WifiOff, ArrowRight, Gift } from "lucide-react";
 import { PRICE_MONTHLY, PRICE_YEARLY, yen } from "@/lib/pricing";
 
 const YEARLY_OFF = Math.round((1 - PRICE_YEARLY / (PRICE_MONTHLY * 12)) * 100);
@@ -96,7 +96,11 @@ export default function Landing({ onLogin, onSignup }: { onLogin: () => void; on
               <button onClick={onSignup} className="btn" style={{ width: "auto", padding: "14px 26px", fontSize: 15 }}>無料で登録して始める<ArrowRight size={17} /></button>
               <button onClick={onLogin} style={{ background: "none", border: "none", color: "var(--ink)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>ログイン</button>
             </div>
-            <div style={{ marginTop: 30, color: "var(--light)", fontSize: 13, letterSpacing: "0.01em" }}>
+            {/* 味見フック: 登録した無料会員は人気機種をフル閲覧できる=課金前に価値を体験できることを明示 */}
+            <div style={{ marginTop: 20, display: "inline-flex", alignItems: "center", gap: 9, background: "var(--green-tint)", color: "var(--green)", fontWeight: 700, fontSize: 13.5, padding: "9px 14px", borderRadius: 999 }}>
+              <Gift size={16} />無料登録で、人気機種をまるごとお試し
+            </div>
+            <div style={{ marginTop: 22, color: "var(--light)", fontSize: 13, letterSpacing: "0.01em" }}>
               300機種以上を収録　·　毎月更新　·　スマスロ／スマパチ対応
             </div>
           </div>
@@ -137,12 +141,12 @@ export default function Landing({ onLogin, onSignup }: { onLogin: () => void; on
       <section style={{ borderTop: "1px solid var(--line)", background: "var(--bg-soft)" }}>
         <div style={{ maxWidth: 1080, margin: "0 auto", padding: "clamp(56px, 8vw, 96px) 24px" }}>
           <h2 style={{ fontSize: "clamp(24px, 3vw, 34px)", fontWeight: 800, letterSpacing: "-0.03em" }}>料金</h2>
-          <p style={{ color: "var(--sub)", fontSize: 15, marginTop: 12, maxWidth: 460, lineHeight: 1.8 }}>登録は無料。狙い目・解析・大量集計・計算ツールなど全機能の閲覧はプレミアム会員で。</p>
+          <p style={{ color: "var(--sub)", fontSize: 15, marginTop: 12, maxWidth: 480, lineHeight: 1.8 }}>登録は無料で、人気機種はそのままお試し閲覧できます。全機種の狙い目・解析・大量集計・計算ツールはプレミアム会員で。</p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 20, marginTop: 36, alignItems: "stretch" }}>
             <div style={{ flex: "1 1 260px", background: "#fff", border: "1px solid var(--border)", borderRadius: 14, padding: 26 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "var(--sub)" }}>無料登録</div>
               <div className="num" style={{ fontSize: 30, fontWeight: 800, margin: "8px 0 4px", letterSpacing: "-0.02em" }}>¥0</div>
-              <div style={{ color: "var(--light)", fontSize: 13, lineHeight: 1.7, marginTop: 12 }}>アカウント作成・お気に入り・メモの保存。機種の内容はプレミアムで解禁。</div>
+              <div style={{ color: "var(--light)", fontSize: 13, lineHeight: 1.7, marginTop: 12 }}>アカウント作成・お気に入り・メモの保存。人気機種は狙い目・解析・大量集計まで無料でお試しできます。</div>
             </div>
             <div style={{ flex: "1 1 260px", background: "#fff", border: "1.5px solid var(--blue)", borderRadius: 14, padding: 26 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "var(--blue)" }}>プレミアム</div>

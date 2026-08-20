@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Crown, LogOut, KeyRound, RefreshCw, Mail, Settings, Check, Trash2, Gift, Copy } from "lucide-react";
+import { ChevronLeft, ChevronRight, Crown, LogOut, KeyRound, RefreshCw, Mail, Settings, Check, Trash2, Gift, Copy, Share2 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { useSubscription } from "@/lib/subscription";
@@ -52,9 +52,21 @@ export default function Account() {
   }, []);
 
   const refLink = ref ? `https://smasuro-lab.com/?ref=${ref.code}` : "";
+  // 共有メッセージ(LINE/X/Discord等に貼る前提)。特典を明記して踏んでもらいやすく。
+  const shareText = "スマスロ・スマパチ300機種以上の狙い目・期待値・天井をまとめた「スマスマ期待値ラボ」📈 このリンクから登録＆課金でお互い1ヶ月分(¥780)無料になります👇";
   const copyRefLink = async () => {
     if (!refLink) return;
     try { await navigator.clipboard.writeText(refLink); setRefCopied(true); setTimeout(() => setRefCopied(false), 1500); } catch {}
+  };
+  // ネイティブ共有(モバイルはLINE/X等の共有シートへ1タップ)。未対応環境はコピーにフォールバック。
+  const shareRefLink = async () => {
+    if (!refLink) return;
+    const nav = typeof navigator !== "undefined" ? navigator : null;
+    if (nav && typeof nav.share === "function") {
+      try { await nav.share({ title: "スマスマ期待値ラボ", text: shareText, url: refLink }); return; }
+      catch { return; } // ユーザーがキャンセル等 → 何もしない
+    }
+    copyRefLink();
   };
 
   const provider = (user?.app_metadata?.provider as string) || "email";
@@ -187,10 +199,14 @@ export default function Account() {
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <input readOnly value={refLink} onFocus={(e) => e.currentTarget.select()}
                     style={{ flex: 1, minWidth: 0, height: 40, padding: "0 12px", fontSize: 13, border: "1px solid var(--border)", borderRadius: 6, outline: "none", background: "var(--bg-soft)", color: "var(--ink)" }} />
-                  <button onClick={copyRefLink} className="btn" style={{ width: "auto", padding: "0 14px", height: 40, display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
+                  <button onClick={copyRefLink} className="btn ghost" style={{ width: "auto", padding: "0 14px", height: 40, display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
                     {refCopied ? <><Check size={14} />コピー済</> : <><Copy size={14} />コピー</>}
                   </button>
                 </div>
+                {/* ネイティブ共有: LINE/X/Discord等へ1タップ(未対応環境はコピー) */}
+                <button onClick={shareRefLink} className="btn" style={{ width: "100%", justifyContent: "center", marginTop: 10, gap: 7 }}>
+                  <Share2 size={16} />友だちに共有する
+                </button>
               </div>
               <div style={{ ...row, ...topLine, marginTop: 10 }}>
                 <Gift size={18} style={{ color: "var(--blue)", flex: "none" }} />
